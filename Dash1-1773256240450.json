@@ -1,0 +1,1429 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 1,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "eesq0ra179y4gf"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "LAF sensor1"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2+security-01",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fegv1znqt43k0b"
+          },
+          "query": "\r\nsensor_id = ${sensorName:json}\r\n\r\nfrom(bucket: \"SoundDashHosp\")\r\n    |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n    |> filter(fn: (r) => \r\n      r[\"_measurement\"] == sensor_id[0] and\r\n      (\r\n        r[\"_field\"] == \"${param}\"\r\n      )\r\n    )\r\n|>aggregateWindow(every:v.windowPeriod, fn:mean,  createEmpty: false)\r\n|> map(fn: (r) => ({ r with _field: \"${param} \" + sensor_id[0]}))\r\n",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fegv1znqt43k0b"
+          },
+          "hide": false,
+          "query": "sensor_id = ${sensorName:json}\r\n\r\nsensor_id_ok = length(arr: sensor_id) > 1\r\n\r\nresult = if sensor_id_ok then\r\nfrom(bucket: \"SoundDashHosp\")\r\n    |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n    |> filter(fn: (r) => \r\n      r[\"_measurement\"] == sensor_id[1] and\r\n      (\r\n        r[\"_field\"] == \"${param}\"\r\n      )\r\n    )\r\n    |>aggregateWindow(every:v.windowPeriod, fn:mean,  createEmpty: false)\r\n|> map(fn: (r) => ({ r with _field:\"${param} \" + sensor_id[1]}))\r\n\r\n\r\nelse\r\n  from(bucket: \"SoundDashHosp\")\r\n    |> range(start: -1m, stop: now())\r\n    |> filter(fn: (r) => false)\r\nresult",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fegv1znqt43k0b"
+          },
+          "hide": false,
+          "query": "sensor_id = ${sensorName:json}\r\n\r\n\r\nsensor_id_ok = length(arr: sensor_id) > 2\r\n\r\nresult = if sensor_id_ok then\r\nfrom(bucket: \"SoundDashHosp\")\r\n    |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n    |> filter(fn: (r) => \r\n      r[\"_measurement\"] == sensor_id[2] and\r\n      (\r\n        r[\"_field\"] == \"${param}\"\r\n      )\r\n    )\r\n    |>aggregateWindow(every:v.windowPeriod, fn:mean,  createEmpty: false)\r\n|> map(fn: (r) => ({ r with _field:\"${param} \" + sensor_id[2]}))\r\n\r\n\r\nelse\r\n  from(bucket: \"SoundDashHosp\")\r\n      |> range(start: -1m, stop: now())\r\n      |> filter(fn: (r) => false)\r\n\r\nresult",
+          "refId": "C"
+        }
+      ],
+      "title": "",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": ".*LAEA (.*)",
+            "renamePattern": "LAF $1"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "(.*)",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "eesq0ra179y4gf"
+      },
+      "description": "Valores em Tempo Real",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "semi-dark-red",
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "dB",
+            "axisPlacement": "auto",
+            "fillOpacity": 81,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 2,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "max": 120,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "light-green"
+              },
+              {
+                "color": "semi-dark-green",
+                "value": 20
+              },
+              {
+                "color": "light-yellow",
+                "value": 30
+              },
+              {
+                "color": "yellow",
+                "value": 40
+              },
+              {
+                "color": "semi-dark-orange",
+                "value": 50
+              },
+              {
+                "color": "dark-red",
+                "value": 60
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00025_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "25 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00031.5_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "31.5 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00040_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "40 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00050_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "50 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00063_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "63 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00080_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "80 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00100_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "100 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00125_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "125 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00160_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "160 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00200_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "200 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00250_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "250 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00315_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "315 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00400_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "400 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00500_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "500 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00630_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "630 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "00800_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "800 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "01000_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "1000 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "01250_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "1250 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "01600_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "1600 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "02500_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "2500 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "03150_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "3150 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "04000_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "4000 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "05000_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "5000 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "06300_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "6300 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "08000_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "8000 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "10000_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "10000 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "12500_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "12500 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "16000_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "16000 Hz"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "20000_Hz"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "20000 Hz"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 7,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 1,
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": false
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "text": {},
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "Time",
+        "xTickLabelRotation": 45,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.0.2+security-01",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fegv1znqt43k0b"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "import \"strings\"\r\n\r\n\r\nfrom(bucket: \"SoundDashHosp\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"${sensorName}\")\r\n  |> filter(fn: (r) =>\r\n    r._field == \"00025_Hz\" or\r\n    r._field == \"00031.5_Hz\" or\r\n    r._field == \"00040_Hz\" or\r\n    r._field == \"00050_Hz\" or\r\n    r._field == \"00063_Hz\" or\r\n    r._field == \"00080_Hz\" or\r\n    r._field == \"00100_Hz\" or\r\n    r._field == \"00125_Hz\" or\r\n    r._field == \"00160_Hz\" or\r\n    r._field == \"00200_Hz\" or\r\n    r._field == \"00250_Hz\" or\r\n    r._field == \"00315_Hz\" or\r\n    r._field == \"00400_Hz\" or\r\n    r._field == \"00500_Hz\" or\r\n    r._field == \"00630_Hz\" or\r\n    r._field == \"00800_Hz\" or\r\n    r._field == \"01000_Hz\" or\r\n    r._field == \"01250_Hz\" or\r\n    r._field == \"01600_Hz\" or\r\n    r._field == \"02500_Hz\" or\r\n    r._field == \"03150_Hz\" or\r\n    r._field == \"04000_Hz\" or\r\n    r._field == \"05000_Hz\" or\r\n    r._field == \"06300_Hz\" or\r\n    r._field == \"08000_Hz\" or\r\n    r._field == \"10000_Hz\" or\r\n    r._field == \"12500_Hz\" or\r\n    r._field == \"16000_Hz\" or\r\n    r._field == \"20000_Hz\"\r\n  )\r\n  |> group(columns: [\"_field\"])\r\n  |> last()\r\n  |> map(fn: (r) => {\r\n    freq_num = \r\n      if r._field == \"00025_Hz\" then \"001\"\r\n      else if r._field == \"00031.5_Hz\" then \"002\"\r\n      else if r._field == \"00040_Hz\" then \"003\"\r\n      else if r._field == \"00050_Hz\" then \"004\"\r\n      else if r._field == \"00063_Hz\" then \"005\"\r\n      else if r._field == \"00080_Hz\" then \"006\"\r\n      else if r._field == \"00100_Hz\" then \"007\"\r\n      else if r._field == \"00125_Hz\" then \"008\"\r\n      else if r._field == \"00160_Hz\" then \"009\"\r\n      else if r._field == \"00200_Hz\" then \"010\"\r\n      else if r._field == \"00250_Hz\" then \"011\"\r\n      else if r._field == \"00315_Hz\" then \"012\"\r\n      else if r._field == \"00400_Hz\" then \"013\"\r\n      else if r._field == \"00500_Hz\" then \"014\"\r\n      else if r._field == \"00630_Hz\" then \"015\"\r\n      else if r._field == \"00800_Hz\" then \"016\"\r\n      else if r._field == \"01000_Hz\" then \"017\"\r\n      else if r._field == \"01250_Hz\" then \"018\"\r\n      else if r._field == \"01600_Hz\" then \"019\"\r\n      else if r._field == \"02500_Hz\" then \"020\"\r\n      else if r._field == \"03150_Hz\" then \"021\"\r\n      else if r._field == \"04000_Hz\" then \"022\"\r\n      else if r._field == \"05000_Hz\" then \"023\"\r\n      else if r._field == \"06300_Hz\" then \"024\"\r\n      else if r._field == \"08000_Hz\" then \"025\"\r\n      else if r._field == \"10000_Hz\" then \"026\"\r\n      else if r._field == \"12500_Hz\" then \"027\"\r\n      else if r._field == \"16000_Hz\" then \"028\"\r\n      else if r._field == \"20000_Hz\" then \"029\"\r\n      else \"999\"\r\n\r\n    freq_label =\r\n      if r._field == \"00031.5_Hz\" then \"31.5\"\r\n      else if r._field == \"01000_Hz\" then \"1k\"\r\n      else if r._field == \"01250_Hz\" then \"1.25k\"\r\n      else if r._field == \"01600_Hz\" then \"1.6k\"\r\n      else if r._field == \"02500_Hz\" then \"2.5k\"\r\n      else if r._field == \"03150_Hz\" then \"3.15k\"\r\n      else if r._field == \"04000_Hz\" then \"4k\"\r\n      else if r._field == \"05000_Hz\" then \"5k\"\r\n      else if r._field == \"06300_Hz\" then \"6.3k\"\r\n      else if r._field == \"08000_Hz\" then \"8k\"\r\n      else if r._field == \"10000_Hz\" then \"10k\"\r\n      else if r._field == \"12500_Hz\" then \"12.5k\"\r\n      else if r._field == \"16000_Hz\" then \"16k\"\r\n      else if r._field == \"20000_Hz\" then \"20k\"\r\n      else string(v: int(v: strings.replaceAll(v: r._field, t: \"_Hz\", u: \"\")))\r\n\r\n    return {\r\n      freq_ordem: freq_num,\r\n      freq_label: freq_label,\r\n      _value: r._value\r\n    }\r\n  })\r\n  |> sort(columns: [\"freq_ordem\"])\r\n  |> keep(columns: [\"freq_label\",\"_value\"])",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "eesq0ra179y4gf"
+      },
+      "description": "Valores por Periodo ",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 16,
+      "options": {
+        "calculate": false,
+        "cellGap": 0,
+        "cellValues": {
+          "unit": "dB"
+        },
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "max": 85,
+          "min": 20,
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Rainbow",
+          "steps": 64
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": true
+        },
+        "rowsFrame": {
+          "layout": "auto"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisPlacement": "left",
+          "axisWidth": 80,
+          "reverse": false
+        }
+      },
+      "pluginVersion": "12.0.2+security-01",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fegv1znqt43k0b"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "import \"strings\" from(bucket: \"SoundDashHosp\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"${sensorName}\") |> filter(fn: (r) => r._field == \"00025_Hz\" or r._field == \" \" or r._field == \"00040_Hz\" or r._field == \"00050_Hz\" or r._field == \"00063_Hz\" or r._field == \"00080_Hz\" or r._field == \"00100_Hz\" or r._field == \"00125_Hz\" or r._field == \"00160_Hz\" or r._field == \"00200_Hz\" or r._field == \"00250_Hz\" or r._field == \"00315_Hz\" or r._field == \"00400_Hz\" or r._field == \"00500_Hz\" or r._field == \"00630_Hz\" or r._field == \"00800_Hz\" or r._field == \"01000_Hz\" or r._field == \"01250_Hz\" or r._field == \"01600_Hz\" or r._field == \"02500_Hz\" or r._field == \"03150_Hz\" or r._field == \"04000_Hz\" or r._field == \"05000_Hz\" or r._field == \"06300_Hz\" or r._field == \"08000_Hz\" or r._field == \"10000_Hz\" or r._field == \"12500_Hz\" or r._field == \"16000_Hz\" or r._field == \"20000_Hz\" ) |>aggregateWindow(every:v.windowPeriod, fn:mean, createEmpty: false)",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "0*(\\d+)_Hz",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "eesq0ra179y4gf"
+      },
+      "description": "Valores em Tempo Real",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 13,
+      "options": {
+        "calculate": false,
+        "cellGap": 0,
+        "cellValues": {
+          "unit": ""
+        },
+        "color": {
+          "exponent": 0.5,
+          "fill": "dark-orange",
+          "max": 1,
+          "min": 0,
+          "mode": "scheme",
+          "reverse": false,
+          "scale": "exponential",
+          "scheme": "Greys",
+          "steps": 68
+        },
+        "exemplars": {
+          "color": "rgba(255,0,255,0.7)"
+        },
+        "filterValues": {
+          "le": 1e-9
+        },
+        "legend": {
+          "show": true
+        },
+        "rowsFrame": {
+          "layout": "auto"
+        },
+        "tooltip": {
+          "mode": "single",
+          "showColorScale": false,
+          "yHistogram": false
+        },
+        "yAxis": {
+          "axisPlacement": "left",
+          "axisWidth": 80,
+          "reverse": false,
+          "unit": ""
+        }
+      },
+      "pluginVersion": "12.0.2+security-01",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fegv1znqt43k0b"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": " from(bucket: \"SoundDashHosp\")\r\n    |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n    |> filter(fn: (r) => \r\n      r[\"_measurement\"] == \"${sensorName}\" and\r\n      (\r\n    r[\"_field\"] == \"EventType1\" or\r\n    r[\"_field\"] == \"EventType2\" or\r\n    r[\"_field\"] == \"EventType3\" or\r\n    r[\"_field\"] == \"EventType4\" or\r\n    r[\"_field\"] == \"EventType5\" or\r\n    r[\"_field\"] == \"EventType6\" or\r\n    r[\"_field\"] == \"EventType7\" or\r\n    r[\"_field\"] == \"EventType8\" or\r\n    r[\"_field\"] == \"EventType9\" or\r\n    r[\"_field\"] == \"EventType10\" or\r\n    r[\"_field\"] == \"EventDetect\"\r\n      )\r\n    )\r\n    |>aggregateWindow(every:v.windowPeriod, fn:mean,  createEmpty: false)\r\n\r\n",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "EventType1",
+            "renamePattern": "Alarme"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "EventType2",
+            "renamePattern": "Impacto"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "EventType3",
+            "renamePattern": "Música"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "EventType4",
+            "renamePattern": "Gritos"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "EventType5",
+            "renamePattern": "Respiração"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "EventType6",
+            "renamePattern": "Conversas"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "EventType7",
+            "renamePattern": "Telefone"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "EventType8",
+            "renamePattern": "Líquidos"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "EventType9",
+            "renamePattern": "Rodas"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "EventType10",
+            "renamePattern": "Assobios"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "(.*)",
+            "renamePattern": "$1"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "heatmap"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "eesq0ra179y4gf"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "axisSoftMin": 1,
+            "axisWidth": 80,
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": ""
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2+security-01",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fegv1znqt43k0b"
+          },
+          "query": "Auxmax = from(bucket: \"SoundDashHosp\")\r\n    |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n    |> filter(fn: (r) => \r\n      r[\"_measurement\"] == \"${sensorName}\" and\r\n      (\r\n        r[\"_field\"] == \"LCpeak\" or\r\n        r[\"_field\"] == \"LAFmax\" \r\n      )\r\n    )\r\n    |>aggregateWindow(every:v.windowPeriod, fn:max,  createEmpty: false)\r\n\r\nAuxmin = from(bucket: \"SoundDashHosp\")\r\n    |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n    |> filter(fn: (r) => \r\n      r[\"_measurement\"] == \"${sensorName}\" and\r\n      (\r\n        r[\"_field\"] == \"LAFmin\" \r\n      )\r\n    )\r\n    |>aggregateWindow(every:v.windowPeriod, fn:min,  createEmpty: false)  \r\n\r\nAuxmean = from(bucket: \"SoundDashHosp\")\r\n    |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n    |> filter(fn: (r) => \r\n      r[\"_measurement\"] == \"${sensorName}\" and\r\n      (\r\n        r[\"_field\"] == \"LAEA\" \r\n      )\r\n    )\r\n    |>aggregateWindow(every:v.windowPeriod, fn:mean,  createEmpty: false)  \r\n\r\n\r\ncombined = union(tables: [Auxmax, Auxmin, Auxmean])\r\n\r\ncombined",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "^([^\\s{]+).*",
+            "renamePattern": "$1"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "LAEA",
+            "renamePattern": "LAF"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "eesq0ra179y4gf"
+      },
+      "description": "Valores por Periodo ",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "semi-dark-red",
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "dB",
+            "axisPlacement": "auto",
+            "fillOpacity": 81,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 2,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "max": 120,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "light-green"
+              },
+              {
+                "color": "semi-dark-green",
+                "value": 20
+              },
+              {
+                "color": "light-yellow",
+                "value": 30
+              },
+              {
+                "color": "semi-dark-yellow",
+                "value": 40
+              },
+              {
+                "color": "semi-dark-orange",
+                "value": 50
+              },
+              {
+                "color": "dark-red",
+                "value": 60
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 22,
+        "x": 0,
+        "y": 40
+      },
+      "id": 15,
+      "options": {
+        "barRadius": 0.1,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 1,
+        "legend": {
+          "calcs": [
+            "mean"
+          ],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": false
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "text": {},
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "freq_label",
+        "xTickLabelRotation": 45,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.0.2+security-01",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fegv1znqt43k0b"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "import \"strings\"\r\n\r\n\r\nfrom(bucket: \"SoundDashHosp\")\r\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n  |> filter(fn: (r) => r._measurement == \"${sensorName}\")\r\n  |> filter(fn: (r) =>\r\n    r._field == \"00025_Hz\" or\r\n    r._field == \"00031.5_Hz\" or\r\n    r._field == \"00040_Hz\" or\r\n    r._field == \"00050_Hz\" or\r\n    r._field == \"00063_Hz\" or\r\n    r._field == \"00080_Hz\" or\r\n    r._field == \"00100_Hz\" or\r\n    r._field == \"00125_Hz\" or\r\n    r._field == \"00160_Hz\" or\r\n    r._field == \"00200_Hz\" or\r\n    r._field == \"00250_Hz\" or\r\n    r._field == \"00315_Hz\" or\r\n    r._field == \"00400_Hz\" or\r\n    r._field == \"00500_Hz\" or\r\n    r._field == \"00630_Hz\" or\r\n    r._field == \"00800_Hz\" or\r\n    r._field == \"01000_Hz\" or\r\n    r._field == \"01250_Hz\" or\r\n    r._field == \"01600_Hz\" or\r\n    r._field == \"02500_Hz\" or\r\n    r._field == \"03150_Hz\" or\r\n    r._field == \"04000_Hz\" or\r\n    r._field == \"05000_Hz\" or\r\n    r._field == \"06300_Hz\" or\r\n    r._field == \"08000_Hz\" or\r\n    r._field == \"10000_Hz\" or\r\n    r._field == \"12500_Hz\" or\r\n    r._field == \"16000_Hz\" or\r\n    r._field == \"20000_Hz\"\r\n  )\r\n  |> group(columns: [\"_field\"])\r\n  |> last()\r\n  |> map(fn: (r) => {\r\n    freq_num = \r\n      if r._field == \"00025_Hz\" then \"001\"\r\n      else if r._field == \"00031.5_Hz\" then \"002\"\r\n      else if r._field == \"00040_Hz\" then \"003\"\r\n      else if r._field == \"00050_Hz\" then \"004\"\r\n      else if r._field == \"00063_Hz\" then \"005\"\r\n      else if r._field == \"00080_Hz\" then \"006\"\r\n      else if r._field == \"00100_Hz\" then \"007\"\r\n      else if r._field == \"00125_Hz\" then \"008\"\r\n      else if r._field == \"00160_Hz\" then \"009\"\r\n      else if r._field == \"00200_Hz\" then \"010\"\r\n      else if r._field == \"00250_Hz\" then \"011\"\r\n      else if r._field == \"00315_Hz\" then \"012\"\r\n      else if r._field == \"00400_Hz\" then \"013\"\r\n      else if r._field == \"00500_Hz\" then \"014\"\r\n      else if r._field == \"00630_Hz\" then \"015\"\r\n      else if r._field == \"00800_Hz\" then \"016\"\r\n      else if r._field == \"01000_Hz\" then \"017\"\r\n      else if r._field == \"01250_Hz\" then \"018\"\r\n      else if r._field == \"01600_Hz\" then \"019\"\r\n      else if r._field == \"02500_Hz\" then \"020\"\r\n      else if r._field == \"03150_Hz\" then \"021\"\r\n      else if r._field == \"04000_Hz\" then \"022\"\r\n      else if r._field == \"05000_Hz\" then \"023\"\r\n      else if r._field == \"06300_Hz\" then \"024\"\r\n      else if r._field == \"08000_Hz\" then \"025\"\r\n      else if r._field == \"10000_Hz\" then \"026\"\r\n      else if r._field == \"12500_Hz\" then \"027\"\r\n      else if r._field == \"16000_Hz\" then \"028\"\r\n      else if r._field == \"20000_Hz\" then \"029\"\r\n      else \"999\"\r\n\r\n    freq_label =\r\n      if r._field == \"00031.5_Hz\" then \"31.5\"\r\n      else if r._field == \"01000_Hz\" then \"1k\"\r\n      else if r._field == \"01250_Hz\" then \"1.25k\"\r\n      else if r._field == \"01600_Hz\" then \"1.6k\"\r\n      else if r._field == \"02500_Hz\" then \"2.5k\"\r\n      else if r._field == \"03150_Hz\" then \"3.15k\"\r\n      else if r._field == \"04000_Hz\" then \"4k\"\r\n      else if r._field == \"05000_Hz\" then \"5k\"\r\n      else if r._field == \"06300_Hz\" then \"6.3k\"\r\n      else if r._field == \"08000_Hz\" then \"8k\"\r\n      else if r._field == \"10000_Hz\" then \"10k\"\r\n      else if r._field == \"12500_Hz\" then \"12.5k\"\r\n      else if r._field == \"16000_Hz\" then \"16k\"\r\n      else if r._field == \"20000_Hz\" then \"20k\"\r\n      else string(v: int(v: strings.replaceAll(v: r._field, t: \"_Hz\", u: \"\")))\r\n\r\n    return {\r\n      freq_ordem: freq_num,\r\n      freq_label: freq_label,\r\n      _value: r._value\r\n    }\r\n  })\r\n  |> sort(columns: [\"freq_ordem\"])\r\n  |> keep(columns: [\"freq_label\",\"_value\"])",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "^(sensor)_id.*",
+            "renamePattern": "$1_id"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "eesq0ra179y4gf"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "max": 120,
+          "min": 20,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "#EAB839",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "dB"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 5,
+        "x": 0,
+        "y": 45
+      },
+      "id": 14,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.0.2+security-01",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "fegv1znqt43k0b"
+          },
+          "query": "from(bucket: \"SoundDashHosp\")\r\n   |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\r\n   |> filter(fn: (r) => \r\n     r[\"_measurement\"] == \"${sensorName}\" and\r\n     (\r\n       r[\"_field\"] ==\"LAEA\" or\r\n       r[\"_field\"] == \"LCpeak\" or\r\n       r[\"_field\"] == \"LAFmin\" or\r\n       r[\"_field\"] == \"LAFmax\"\r\n     )\r\n   )\r\n   |> last()\r\n",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "LAEA",
+            "renamePattern": "LAF"
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "gauge"
+    }
+  ],
+  "preload": false,
+  "refresh": "auto",
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": [
+            "$__all"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "includeAll": true,
+        "multi": true,
+        "name": "sensorName",
+        "options": [
+          {
+            "selected": false,
+            "text": "sensor1",
+            "value": "sensor1"
+          },
+          {
+            "selected": false,
+            "text": "sensor2",
+            "value": "sensor2"
+          },
+          {
+            "selected": false,
+            "text": "sensor3",
+            "value": "sensor3"
+          },
+          {
+            "selected": false,
+            "text": "sensor4",
+            "value": "sensor4"
+          }
+        ],
+        "query": "sensor1, sensor2, sensor3, sensor4",
+        "type": "custom"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {
+          "text": "LAEA",
+          "value": "LAEA"
+        },
+        "name": "param",
+        "options": [
+          {
+            "selected": true,
+            "text": "LAEA",
+            "value": "LAEA"
+          },
+          {
+            "selected": false,
+            "text": "LCpeak",
+            "value": "LCpeak"
+          },
+          {
+            "selected": false,
+            "text": "LAFmin",
+            "value": "LAFmin"
+          },
+          {
+            "selected": false,
+            "text": "LAFmax",
+            "value": "LAFmax"
+          }
+        ],
+        "query": "LAEA, LCpeak, LAFmin, LAFmax",
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-5m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Dash1",
+  "uid": "aemh0e2wamy2od",
+  "version": 37
+}

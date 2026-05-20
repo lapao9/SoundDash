@@ -1,0 +1,16 @@
+{
+  "interface_audio_data": {
+    "sample_rate": 1,
+    "block_size": 1,
+    "segment_duration": 1
+  },
+  "audio_loop_recording": true,
+  "audio_file_duration": 1,
+  "flags": {
+    "data_record": true,
+    "flagx": "1",
+    "flagy": "1"
+  },
+  "event_threshold": 1
+}
+

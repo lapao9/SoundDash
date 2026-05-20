@@ -1,0 +1,35 @@
+[
+    {
+        "id": "1bf257adb8d626ba",
+        "type": "influxdb out",
+        "z": "46686885fa25113e",
+        "influxdb": "6890134c.03a31c",
+        "name": "InfluxDB Ricardo",
+        "measurement": "sound_level",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "organisation",
+        "bucket": "bucket1",
+        "x": 1110,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "6890134c.03a31c",
+        "type": "influxdb",
+        "hostname": "llJE2BS_xG5sH71l_Hf_O-nF3R600l0TDxC1RAIJgsJ5cEXT48VnYrqc8bBpcUUW80gv7www8HdD6VBnynCaPA==",
+        "port": "8086",
+        "protocol": "http",
+        "database": "database",
+        "name": "Influx",
+        "usetls": false,
+        "tls": "",
+        "influxdbVersion": "2.0",
+        "url": "https://eu-central-1-1.aws.cloud2.influxdata.com:443",
+        "timeout": "10",
+        "rejectUnauthorized": true
+    }
+]

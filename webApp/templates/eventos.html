@@ -1,0 +1,329 @@
+><!-- eventos.html -->
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SoundDashHosp - Eventos por Período</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #f5f8fa;
+      color: #333;
+    }
+    header {
+      background: linear-gradient(135deg, #2c3e50, #3498db);
+      color: white;
+      padding: 2rem 0;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+    .logo {
+      font-size: 2.5rem;
+      font-weight: 700;
+    }
+    .tagline {
+      font-size: 1.2rem;
+      opacity: 0.9;
+    }
+    nav {
+      background-color: white;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .nav-link {
+      font-weight: 600;
+      padding: 0.5rem 1rem;
+      border-radius: 4px;
+    }
+    .nav-link:hover {
+      background-color: #3498db;
+      color: white !important;
+    }
+    .nav-link.active {
+      background-color: #3498db;
+      color: white !important;
+    }
+    .btn-outline-primary {
+      font-weight: 600;
+    }
+    .container.my-5 {
+      max-width: 900px;
+    }
+    .card-evento {
+      border-radius: 0.75rem;
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.08);
+      margin-bottom: 1rem;
+      background-color: white;
+      padding: 1rem 1.5rem;
+    }
+    footer {
+      background-color: #2c3e50;
+      color: white;
+      padding: 3rem 0;
+      text-align: center;
+    }
+    .footer-links a {
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      transition: color 0.3s ease;
+      margin: 0 0.5rem;
+    }
+    .footer-links a:hover {
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="logo">SoundDashHosp</div>
+    <div class="tagline">Monitorização Sonora Avançada para Ambientes Hospitalares</div>
+  </div>
+</header>
+
+<nav class="navbar navbar-expand-lg">
+  <div class="container">
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse justify-content-center" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item"><a class="nav-link" href="/">Início</a></li>
+        <li class="nav-item"><a class="nav-link" href="/atual">Monitorização Em Tempo Real</a></li>
+        <li class="nav-item"><a class="nav-link" href="/tempo">Monitorização por Período</a></li>
+        <li class="nav-item"><a class="nav-link active" href="/eventos">Eventos Detetados</a></li>
+        <li class="nav-item"><a class="nav-link" href="/mapa">Mapa</a></li>
+        <li class="nav-item"><a class="nav-link" href="/guia">Guia</a></li>
+        <li class="nav-item"><a class="nav-link btn btn-outline-primary ms-2" href="/acesso-tecnico">Acesso Técnico</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<main class="container my-5">
+  <h1 class="mb-4 text-center">Eventos Detetados por Período</h1>
+
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <label for="startDate" class="form-label">Início</label>
+      <input type="datetime-local" class="form-control" id="startDate">
+    </div>
+    <div class="col-md-3">
+      <label for="endDate" class="form-label">Fim</label>
+      <input type="datetime-local" class="form-control" id="endDate">
+    </div>
+    <div class="col-md-3">
+      <label for="sensorSelect" class="form-label">Sensor</label>
+      <select id="sensorSelect" class="form-select">
+        <option value="" disabled>A carregar sensores...</option>
+      </select>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <button class="btn btn-primary w-100" onclick="carregarEventos()">Carregar Eventos</button>
+    </div>
+  </div>
+
+  <div id="resultado"></div>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="footer-logo mb-3" style="font-size: 1.5rem; font-weight: 700;">SoundDashHosp</div>
+    <div class="footer-links mb-4">
+      <a href="/">Início</a>
+      <a href="/atual">Monitorização Em Tempo Real</a>
+      <a href="/tempo">Monitorização por Período</a>
+      <a href="/eventos">Eventos Detetados</a>
+      <a href="/mapa">Mapa</a>
+      <a href="/guia">Guia</a>
+    </div>
+    <div>&copy; 2025 SoundDashHosp. Todos os direitos reservados.</div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+let intervalosGlobais = [];
+
+const nomesTipos = {
+  EventType1: "Alarme",
+  EventType2: "Impacto",
+  EventType3: "Música",
+  EventType4: "Gritos",
+  EventType5: "Respiração",
+  EventType6: "Conversas",
+  EventType7: "Telefone",
+  EventType8: "Líquidos",
+  EventType9: "Rodas",
+  EventType10: "Assobios"
+};
+
+function agruparEventos(dados) {
+  if (!dados.length) return [];
+  const eventos = dados.map(d => ({ time: new Date(d.time), data: d }));
+  let intervalos = [];
+  let atualGrupo = {
+    inicio: eventos[0].time,
+    fim: eventos[0].time,
+    eventos: [eventos[0].data]
+  };
+
+  for (let i = 1; i < eventos.length; i++) {
+    const delta = (eventos[i].time - eventos[i - 1].time) / 1000;
+    if (delta <= 5) {
+      atualGrupo.fim = eventos[i].time;
+      atualGrupo.eventos.push(eventos[i].data);
+    } else {
+      intervalos.push({ ...atualGrupo });
+      atualGrupo = {
+        inicio: eventos[i].time,
+        fim: eventos[i].time,
+        eventos: [eventos[i].data]
+      };
+    }
+  }
+  intervalos.push({ ...atualGrupo });
+  return intervalos;
+}
+
+function contarTiposEvento(eventos) {
+  const contagem = {};
+  eventos.forEach(reg => {
+    for (let i = 1; i <= 10; i++) {
+      const key = `EventType${i}`;
+      contagem[key] = (contagem[key] || 0) + reg[key];
+    }
+  });
+  console.log(Object.entries(contagem).sort((a, b) => b[1] - a[1]))
+  return Object.entries(contagem).sort((a, b) => b[1] - a[1]).slice(0, 2);
+}
+
+function mostrarDetalhes(index) {
+  const grupo = intervalosGlobais[index];
+  const topTipos = contarTiposEvento(grupo.eventos);
+  const div = document.getElementById(`detalhes-${index}`);
+  if (div.innerHTML.trim() !== "") {
+    div.innerHTML = "";
+    return;
+  }
+  intervalosGlobais.forEach((_, i) => {
+    if (i !== index) document.getElementById(`detalhes-${i}`).innerHTML = "";
+  });
+  let html = `<ul class="list-group mt-2">`;
+  if (topTipos.length === 0) {
+    html += `<li class="list-group-item">Nenhum tipo de evento registado.</li>`;
+  } else {
+    topTipos.forEach(([tipo]) => {
+      html += `<li class="list-group-item">${nomesTipos[tipo] || tipo}</li>`;
+    });
+  }
+  html += `</ul>`;
+  div.innerHTML = html;
+}
+
+async function carregarEventos() {
+  const resultadoDiv = document.getElementById('resultado');
+  const sensor = document.getElementById('sensorSelect').value;
+  const start = document.getElementById('startDate').value;
+  const end = document.getElementById('endDate').value;
+
+  if (!sensor || !start || !end) {
+    resultadoDiv.innerHTML = '<div class="alert alert-warning">Seleciona sensor e datas válidas.</div>';
+    return;
+  }
+
+  resultadoDiv.innerHTML = '<div class="alert alert-info">A carregar...</div>';
+
+  try {
+    let ISOstart = new Date(start).toISOString().replace("Z", "").replace(":00.000", "");
+    let ISOend = new Date(end).toISOString().replace("Z", "").replace(":00.000", "");
+
+
+
+    /*try{
+        datetime.fromisoformat(start.replace("Z", "+00:00"))
+        datetime.fromisoformat(end.replace("Z", "+00:00"))
+    }catch{
+              return jsonify({"error": "Formato de data inválido."}), 400
+    }*/
+
+    const res = await fetch(`/api/eventos?sensor=${sensor}&start=${ISOstart}&end=${ISOend}`);
+    const dados = await res.json();
+    if (!dados || dados.length === 0) {
+      resultadoDiv.innerHTML = '<div class="alert alert-success">Nenhum evento detetado.</div>';
+      return;
+    }
+
+    intervalosGlobais = agruparEventos(dados);
+
+    let html = "";
+    intervalosGlobais.forEach((grupo, index) => {
+      const duracaoSegundos = (grupo.fim - grupo.inicio) / 1000;
+      let duracaoFormatada = "";
+      if (duracaoSegundos >= 3600) {
+        const horas = Math.floor(duracaoSegundos / 3600);
+        const minutos = Math.floor((duracaoSegundos % 3600) / 60);
+        duracaoFormatada = `${horas}h ${minutos}min`;
+      } else if (duracaoSegundos >= 60) {
+        const minutos = Math.floor(duracaoSegundos / 60);
+        const segundos = Math.floor(duracaoSegundos % 60);
+        duracaoFormatada = `${minutos}min ${segundos}s`;
+      } else {
+        duracaoFormatada = `${duracaoSegundos.toFixed(1)}s`;
+      }
+
+      html += `
+        <div class="card card-evento p-3">
+          <div>
+            <strong>Início:</strong> ${new Date(grupo.inicio).toLocaleString()}<br>
+            <strong>Fim:</strong> ${new Date(grupo.fim).toLocaleString()}<br>
+            <strong>Duração:</strong> ${duracaoFormatada}
+            <button class="btn btn-sm btn-outline-primary float-end" onclick="mostrarDetalhes(${index})">
+              Ver detalhes
+            </button>
+            <div id="detalhes-${index}" class="mt-2"></div>
+          </div>
+        </div>`;
+    });
+
+    resultadoDiv.innerHTML = html;
+  } catch (err) {
+    resultadoDiv.innerHTML = `<div class="alert alert-danger">Erro: ${err.message}</div>`;
+  }
+}
+
+async function carregarSensores() {
+  try {
+    const res = await fetch('/api/sensores');
+    const sensores = await res.json();
+    const select = document.getElementById('sensorSelect');
+    select.innerHTML = '<option value="">Escolher...</option>';
+    sensores.forEach((s, i) => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+      if (i === 0) opt.selected = true;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error("Erro ao carregar sensores:", err);
+  }
+}
+
+window.onload = () => {
+  carregarSensores();
+  const now = new Date();
+  const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
+  const pad = n => String(n).padStart(2, '0');
+  const format = d =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  document.getElementById('endDate').value = format(now);
+  document.getElementById('startDate').value = format(fiveMinAgo);
+  carregarEventos();
+};
+</script>
+
+</body>
+</html>

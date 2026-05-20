@@ -1,0 +1,30 @@
+Pasta SoundDashHosp 
+
+abrir pasta mosquitto - abrir cmd nessa pasta e correr: mosquitto -c mosquittoV1.conf
+abrir pasta InfluxData - abrir cmd nessa pasta e correr: influxd
+interface Influx em localhost:8086 (======faltam as credenciais=======)
+na pasta principal abrir cmd  e correr : node-red
+
+em um cmd a parte levantar ip da mquina com: ipconfig, ver ipv4 address
+
+mudar ip do broker no json do sensor
+
+ir � interface do Node-RED em http://localhost:1880/#flow/46686885fa25113e e no bloco que diz MQTT In carregar no botao de editar (caneta) e mudar o ip para o
+levantado no ponto anterior, confirmar que aparece connected a verde embaixo do bloco / carrear botao Update e depois Done
+
+ir ao bloco InfluxDB, carregar no botao de editar e colocar o novo ip levantado com ipconfig / carrear botao Update e depois Done
+
+Carregar em Deploy (canto superior direito)
+
+Grafana disponivel no url localhost:3000, ir a Dashboards e de seguida Dash1 (======faltam as credenciais=======)
+
+Executar a webApp na pasta webapp abrindo um cmd e correndo: py webAppGrafana.py 
+Interface disponivel no url localhost:5000
+
+Configura��o config.json (======faltam as credenciais=======)
+
+comando docker para up e down:
+docker compose -f docker-compose.yml up -d
+docker compose -f docker-compose.yml down
+para remover um container chamado influxdb:
+docker rm -f influxdb

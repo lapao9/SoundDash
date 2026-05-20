@@ -1,0 +1,179 @@
+<!-- display.html -->
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SoundDashHosp - Dashboard TV</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #111217;
+      color: #fff;
+      font-family: sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .sidebar {
+      width: 15%;
+      background-color: #111217;
+      padding: 10px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 2px solid #2a2b35;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(42, 43, 53, 0.3);
+    }
+
+    .gauge-frame {
+      height: 65%;
+    }
+
+    .chart-frame {
+      flex: 1;
+    }
+
+    .classes-container {
+      margin-top: 10px;
+      padding: 8px;
+      background-color: #1f2029;
+      border: 1px solid #2a2b35;
+      border-radius: 6px;
+      font-size: 0.9em;
+      line-height: 1.6em;
+    }
+
+    .classes-line {
+      margin-bottom: 8px;
+    }
+
+    .sensor-selector {
+      margin-top: 10px;
+      background-color: #1f2029;
+      color: #fff;
+      border: 1px solid #2a2b35;
+      border-radius: 6px;
+      padding: 6px;
+      font-size: 1em;
+    }
+
+    .back-button {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      background-color: #1f2029;
+      border: 1px solid #2a2b35;
+      border-radius: 6px;
+      padding: 6px;
+      font-size: 1.2em;
+      color: #fff;
+      cursor: pointer;
+      text-align: center;
+    }
+    
+    .back-button:hover {
+      background-color: #2a2b35;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <iframe id="gaugePanel" class="gauge-frame" src=""></iframe>
+
+    <!-- Classes aqui -->
+    <div id="classesContainer" class="classes-container"></div>
+
+    <select id="sensorSelect" class="sensor-selector" onchange="atualizarGrafico()">
+      <option disabled>A carregar...</option>
+    </select>
+
+    <button id="backButton" class="back-button" onclick="window.location.href='/atual'"> Sair </button>
+  </div>
+
+  <div class="main">
+    <iframe id="graficoLAEA" class="chart-frame" src=""></iframe>
+    <iframe id="NvlFreq" class="chart-frame" src=""></iframe>
+    <iframe id="Spectogram" class="chart-frame" src=""></iframe>
+  </div>
+
+  <script>
+    function atualizarGrafico() {
+      const from = `now-5m`;
+      const to = 'now';
+      const sensor = document.getElementById('sensorSelect').value;
+      const sensorParam = `var-sensorName=${sensor}`;
+
+      const buildURL = (panelId) =>
+        `{{ grafana_url }}/d-solo/aemh0e2wamy2od/dash1?orgId=1&theme=dark&panelId=${panelId}&from=${from}&to=${to}&${sensorParam}&__feature.dashboardSceneSolo`;
+
+      document.getElementById('graficoLAEA').src = buildURL(1);
+      document.getElementById('NvlFreq').src = buildURL(13);
+      document.getElementById('Spectogram').src = buildURL(16);
+      document.getElementById('gaugePanel').src = buildURL(14);
+    }
+
+    async function atualizarClasses() {
+      try {
+        const res = await fetch("/api/classes");
+        const data = await res.json();
+
+        const container = document.getElementById("classesContainer");
+        container.innerHTML = "";
+
+        data.forEach(row => {
+          const p = document.createElement("p");
+          p.className = "classes-line";
+          p.innerHTML = `<strong>${row.ClassName}</strong> | ${row.ClassScore.toFixed(2)}`;
+          container.appendChild(p);
+        });
+      } catch (err) {
+        console.error("Erro ao buscar classes:", err);
+      }
+    }
+
+    async function carregarSensores() {
+      try {
+        const res = await fetch('/api/sensores');
+        const sensores = await res.json();
+        const select = document.getElementById('sensorSelect');
+        select.innerHTML = '';
+        sensores.forEach((s, i) => {
+          const opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+          if (i === 0) opt.selected = true;
+          select.appendChild(opt);
+        });
+        atualizarGrafico();
+      } catch (err) {
+        console.error("Erro ao carregar sensores:", err);
+      }
+    }
+
+    window.onload = () => {
+      carregarSensores();
+      atualizarClasses();
+      setInterval(atualizarClasses, 5000);
+    };
+  </script>
+</body>
+</html>

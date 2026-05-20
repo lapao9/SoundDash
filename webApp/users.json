@@ -1,0 +1,5 @@
+{
+  "admin": {
+    "password": "pbkdf2:sha256:500$8Uxoxt97d6f2Ym6K$6d3122746a59a5393158b730c3d0b73923989100e9f52b4efe423838eec8490e"  
+  }
+}
