@@ -1,0 +1,30 @@
+.page-title {
+  margin: 2rem 0 1rem;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.form-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 0 8px rgba(0,0,0,0.1);
+}
+
+.loading-spinner {
+  display: none;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  margin-left: 0.5rem;
+}
+
+.status-badge.online  { background-color: #28a745; color: white; }
+.status-badge.offline { background-color: #dc3545; color: white; }
+.status-badge.loading { background-color: #ffc107; color: black; }

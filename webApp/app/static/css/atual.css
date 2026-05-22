@@ -1,0 +1,21 @@
+.full-width-iframe {
+  width: 100%;
+  height: 250px;
+  border: none;
+}
+
+.part-width-iframe {
+  width: 70%;
+  height: 250px;
+  border: none;
+}
+
+.rest-width-iframe {
+  width: 29.5%;
+  height: 250px;
+  border: none;
+}
+
+#paramSelect {
+  display: none;
+}

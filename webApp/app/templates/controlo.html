@@ -1,0 +1,174 @@
+{% set active_page = 'controlo' %}
+{% extends 'base.html' %}
+
+{% block title %}SoundDashHosp - Acesso Técnico{% endblock %}
+
+{% block header_tagline %}Acesso Técnico - Configuração de Sensores{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/controlo.css') }}" />
+{% endblock %}
+
+{% block content %}
+<main class="container my-4">
+  <h2 class="page-title">Definir Parâmetros Técnicos</h2>
+  <div class="form-section">
+    <form id="configForm">
+      <!-- Sensor -->
+      <div class="mb-4">
+        <label class="form-label">Selecionar Sensor <span id="sensorStatus"></span></label>
+        <select class="form-control" id="sensorSelectControlo" name="sensor_name" required onchange="carregarConfigSensor()">
+          <option value="" disabled selected>A carregar sensores...</option>
+        </select>
+        <div class="loading-spinner" id="loadingSpinner">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">A carregar...</span>
+          </div>
+          <p class="mt-2">A comunicar com a estação via MQTT...</p>
+        </div>
+      </div>
+
+      <!-- Station Info -->
+      <h5>Estação</h5>
+      <div class="row mb-3">
+        <div class="col-md-4"><input class="form-control" type="number" name="sensor_ID" placeholder="Sensor ID" required></div>
+        <div class="col-md-4"><input class="form-control" type="text" name="local_Info" placeholder="Local (ex: CampoGrandeLx)" required></div>
+        <div class="col-md-4"><input class="form-control" type="text" name="tipo" placeholder="Tipo (ex: urban_monitoring)" required></div>
+        <div class="col-md-3 mt-2"><input class="form-control" type="number" step="any" name="local_Lat" placeholder="Latitude" required></div>
+        <div class="col-md-3 mt-2"><input class="form-control" type="number" step="any" name="local_Long" placeholder="Longitude" required></div>
+        <div class="col-md-3 mt-2"><input class="form-control" type="number" step="any" name="local_Alt" placeholder="Altitude (m)" required></div>
+        <div class="col-md-3 mt-2"><input class="form-control" type="text" name="Tipo" placeholder="Tipo Sistema" required></div>
+        <div class="col-md-3 mt-2"><input class="form-control" type="text" name="Tipo2" placeholder="Tipo2" required></div>
+      </div>
+
+      <!-- Áudio -->
+      <h5>Áudio</h5>
+      <div class="row mb-3">
+        <div class="col-md-4"><input class="form-control" type="number" name="sample_rate" placeholder="Sample Rate (Hz)" required></div>
+        <div class="col-md-4"><input class="form-control" type="number" name="channels" placeholder="Channels" required></div>
+        <div class="col-md-4"><input class="form-control" type="text" name="dtype" placeholder="Data Type" required></div>
+        <div class="col-md-4 mt-2"><input class="form-control" type="number" name="chunk_size" placeholder="Chunk Size" required></div>
+        <div class="col-md-4 mt-2"><input class="form-control" type="number" name="nbits" placeholder="Bits" required></div>
+        <div class="col-md-4 mt-2"><input class="form-control" type="number" step="any" name="dif_out_in_db" placeholder="Dif Out/In (dB)" required></div>
+        <div class="col-md-6 mt-2"><input class="form-control" type="text" name="target_device_name" placeholder="Device Name" required></div>
+      </div>
+
+      <!-- Timing -->
+      <h5>Timing</h5>
+      <div class="row mb-3">
+        <div class="col-md-4"><input class="form-control" type="number" name="file_duration" placeholder="File Duration (s)" required></div>
+        <div class="col-md-4"><input class="form-control" type="number" name="session_duration" placeholder="Session Duration (s)"></div>
+        <div class="col-md-4"><input class="form-control" type="number" step="0.0001" name="segment_duration" placeholder="Segment Duration (s)" required></div>
+        <div class="col-md-4 mt-2"><input class="form-control" type="number" name="percentil_duration_laxx" placeholder="Percentil Duration LAxx (s)" required></div>
+        <div class="col-md-4 mt-2"><input class="form-control" type="number" name="time_csv_store" placeholder="CSV Store Time (s)" required></div>
+        <div class="col-md-4 mt-2"><input class="form-control" type="number" name="file_duration_csv" placeholder="File Duration CSV (s)" required></div>
+      </div>
+
+      <!-- Audio Save -->
+      <h5>Áudio Save</h5>
+      <div class="row mb-3">
+        <div class="col-md-6"><input class="form-control" type="text" name="file_prefix" placeholder="Prefixo do ficheiro"></div>
+        <div class="col-md-6"><input class="form-control" type="number" name="bitrate" placeholder="Bitrate (kbps)"></div>
+      </div>
+
+      <!-- Níveis -->
+      <h5>Níveis</h5>
+      <div class="row mb-3">
+        <div class="col-md-4"><input class="form-control" type="number" name="cal94" placeholder="Calibração 94dB" required></div>
+        <div class="col-md-4"><input class="form-control" type="number" step="any" name="pref" placeholder="Nível de referência (pref)" required></div>
+        <div class="col-md-4"><input class="form-control" type="number" name="n_13octave_bands" placeholder="Nº de bandas 1/3 octava" required></div>
+      </div>
+
+      <!-- Redução de Ruído -->
+      <h5>Redução de Ruído</h5>
+      <div class="row mb-3">
+        <div class="col-md-6"><input class="form-control" type="number" step="any" name="reduction_factor" placeholder="Fator de redução" required></div>
+        <div class="col-md-6"><input class="form-control" type="number" name="initial_noise_frames" placeholder="Frames de ruído iniciais" required></div>
+      </div>
+
+      <!-- Percentis de Ruído -->
+      <h5>Percentis de Ruído</h5>
+      <div class="row mb-3">
+        <div class="col-md-4"><input class="form-control" type="number" name="percentil_value" placeholder="Percentil Value"></div>
+        <div class="col-md-4"><input class="form-control" type="number" name="threshold_event_offset" placeholder="Event Offset"></div>
+        <div class="col-md-4"><input class="form-control" type="number" name="percentil_LAxx" placeholder="Percentil LAxx"></div>
+      </div>
+
+      <!-- LEDs -->
+      <h5>LEDs</h5>
+      <div class="row mb-3">
+        <div class="col-md-2"><input class="form-control" type="number" name="level_led_green" placeholder="LED Verde"></div>
+        <div class="col-md-2"><input class="form-control" type="number" name="level_led_green_yellow" placeholder="LED Verde-Amarelo"></div>
+        <div class="col-md-2"><input class="form-control" type="number" name="level_led_yellow" placeholder="LED Amarelo"></div>
+        <div class="col-md-2"><input class="form-control" type="number" name="level_led_yellow_red" placeholder="LED Amarelo-Vermelho"></div>
+        <div class="col-md-2"><input class="form-control" type="number" name="gpio_green" placeholder="GPIO Verde"></div>
+        <div class="col-md-2"><input class="form-control" type="number" name="gpio_yellow" placeholder="GPIO Amarelo"></div>
+        <div class="col-md-2 mt-2"><input class="form-control" type="number" name="gpio_red" placeholder="GPIO Vermelho"></div>
+      </div>
+
+      <!-- MQTT -->
+      <h5>MQTT</h5>
+      <div class="row mb-3">
+        <div class="col-md-4"><input class="form-control" type="text" name="broker" placeholder="Broker"></div>
+        <div class="col-md-4"><input class="form-control" type="number" name="port" placeholder="Porto"></div>
+        <div class="col-md-4"><input class="form-control" type="text" name="topic" placeholder="Tópico"></div>
+      </div>
+
+      <!-- Sound Event Detection -->
+      <h5>Deteção de Eventos Sonoros</h5>
+      <div class="row mb-3">
+        <div class="col-md-6"><input class="form-control" type="text" name="model_path" placeholder="Caminho do modelo"></div>
+        <div class="col-md-6"><input class="form-control" type="text" name="classes" placeholder="Ficheiro Classes"></div>
+        <div class="col-md-6 mt-2"><input class="form-control" type="text" name="family_map" placeholder="Ficheiro Famílias"></div>
+        <div class="col-md-6 mt-2"><input class="form-control" type="text" name="weight_map" placeholder="Ficheiro Pesos"></div>
+        <div class="col-md-6 mt-2"><input class="form-control" type="text" name="family_map2" placeholder="Ficheiro Famílias 2"></div>
+        <div class="col-md-6 mt-2"><input class="form-control" type="text" name="weight_map2" placeholder="Ficheiro Pesos 2"></div>
+        <div class="col-md-6 mt-2"><input class="form-control" type="text" name="blacklist" placeholder="Blacklist (separado por vírgulas)"></div>
+        <div class="col-md-3 mt-2"><input class="form-control" type="number" step="any" name="size_event" placeholder="Tamanho do evento (s)"></div>
+        <div class="col-md-3 mt-2"><input class="form-control" type="number" step="any" name="reduce_Eventmusic" placeholder="Reduzir Event Music"></div>
+      </div>
+
+      <!-- Flags -->
+      <h5>Flags de Configuração</h5>
+      <div class="row mb-3">
+        <div class="col-md-3"><label><input type="checkbox" name="plots_ok"> Plots</label></div>
+        <div class="col-md-3"><label><input type="checkbox" name="save_audiofile_ok"> Guardar Áudio</label></div>
+        <div class="col-md-3"><label><input type="checkbox" name="noise_timeline_ok"> Timeline Ruído</label></div>
+        <div class="col-md-3"><label><input type="checkbox" name="echo_short_ok"> Echo Curto</label></div>
+        <div class="col-md-3"><label><input type="checkbox" name="echo_complete_ok"> Echo Completo</label></div>
+        <div class="col-md-3"><label><input type="checkbox" name="show_leds_display_ok"> Mostrar LEDs</label></div>
+        <div class="col-md-3"><label><input type="checkbox" name="noise_reduction_ok"> Redução de Ruído</label></div>
+        <div class="col-md-3"><label><input type="checkbox" name="publica_mqtt_ok"> Publicar MQTT</label></div>
+        <div class="col-md-3"><label><input type="checkbox" name="plat_mac"> Plataforma Mac</label></div>
+        <div class="col-md-3"><label><input type="checkbox" name="sound_classification_ok"> Classificação Sonora</label></div>
+      </div>
+
+      <!-- Configuração do Sistema -->
+      <h5 class="mt-4">Configuração do Sistema</h5>
+      <div class="row mb-3">
+        <div class="col-md-8">
+          <input class="form-control" type="text" id="grafana_url"
+                 placeholder="URL do Grafana (ex: http://10.64.137.6/grafana)"
+                 value="{{ grafana_url }}">
+          <small class="text-muted">URL base do Grafana usado nos dashboards da aplicação.</small>
+        </div>
+        <div class="col-md-4 d-flex align-items-center">
+          <button type="button" class="btn btn-success w-100" onclick="guardarUrlGrafana()">
+            Guardar URL Grafana
+          </button>
+        </div>
+      </div>
+
+      <!-- Botões -->
+      <div class="d-flex gap-2 mt-4">
+        <button type="button" class="btn btn-primary" onclick="guardarConfiguracoes()">Guardar Configurações do Sensor</button>
+        <a href="/" class="btn btn-secondary">Voltar à Página Inicial</a>
+      </div>
+    </form>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/controlo.js') }}"></script>
+{% endblock %}

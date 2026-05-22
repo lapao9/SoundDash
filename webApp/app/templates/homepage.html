@@ -1,0 +1,47 @@
+{% set active_page = 'home' %}
+{% extends 'base.html' %}
+
+{% block title %}SoundDashHosp - Página Inicial{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}" />
+{% endblock %}
+
+{% block content %}
+<main class="container my-5">
+  <section class="hero text-center mb-5">
+    <h1 class="mb-4">Transforme o Ambiente Sonoro do seu Hospital</h1>
+    <p class="lead mb-4 mx-auto" style="max-width:800px;">
+      SoundDashHosp é uma solução para monitoramento e análise de níveis sonoros em ambientes hospitalares, promovendo um ambiente mais saudável para pacientes e profissionais de saúde.
+    </p>
+    <div class="d-flex flex-column flex-md-row justify-content-center gap-3 mt-4">
+      <a href="/atual" class="cta-button">Monitorização Em Tempo Real</a>
+      <a href="/tempo" class="cta-button secondary">Monitorização por Período</a>
+    </div>
+  </section>
+
+  <section class="features row g-4 my-5">
+    <div class="col-md-6">
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3><strong>Monitorização Em Tempo Real</strong></h3>
+        <p>Acesse os dados sonoros atualizados continuamente de diferentes métricas, permitindo intervenções imediatas se e quando necessário.</p>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="feature-card">
+        <div class="feature-icon">📈</div>
+        <h3><strong>Monitorização por Período</strong></h3>
+        <p>Visualize tendências e padrões sonoros ao longo do tempo para identificar horários críticos e implementar melhorias estratégicas.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="sobre" class="about my-5 py-4">
+    <h2 class="text-center mb-4">Sobre o SoundDashHosp</h2>
+    <p class="text-center mx-auto" style="max-width:800px;">
+      O SoundDashHosp foi desenvolvido por alunos do ISEL com orientação de professores do mesmo instituto e do IPBeja para atender à crescente necessidade de controle de ruído em ambientes hospitalares. Estudos mostram que níveis sonoros elevados podem afetar negativamente a recuperação dos pacientes e aumentar o stresse da equipe médica. A nossa solução oferece ferramentas para monitoramento, análise e gestão do ambiente sonoro, contribuindo para a humanização dos cuidados em saúde.
+    </p>
+  </section>
+</main>
+{% endblock %}

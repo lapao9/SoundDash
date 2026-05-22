@@ -1,0 +1,11 @@
+.container.my-5 {
+  max-width: 900px;
+}
+
+.card-evento {
+  border-radius: 0.75rem;
+  box-shadow: 0 0 8px rgba(0,0,0,0.08);
+  margin-bottom: 1rem;
+  background-color: white;
+  padding: 1rem 1.5rem;
+}

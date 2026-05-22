@@ -1,0 +1,40 @@
+{% set active_page = 'eventos' %}
+{% extends 'base.html' %}
+
+{% block title %}SoundDashHosp - Eventos por Período{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/eventos.css') }}" />
+{% endblock %}
+
+{% block content %}
+<main class="container my-5">
+  <h1 class="mb-4 text-center">Eventos Detetados por Período</h1>
+
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <label for="startDate" class="form-label">Início</label>
+      <input type="datetime-local" class="form-control" id="startDate">
+    </div>
+    <div class="col-md-3">
+      <label for="endDate" class="form-label">Fim</label>
+      <input type="datetime-local" class="form-control" id="endDate">
+    </div>
+    <div class="col-md-3">
+      <label for="sensorSelect" class="form-label">Sensor</label>
+      <select id="sensorSelect" class="form-select">
+        <option value="" disabled>A carregar sensores...</option>
+      </select>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+      <button class="btn btn-primary w-100" onclick="carregarEventos()">Carregar Eventos</button>
+    </div>
+  </div>
+
+  <div id="resultado"></div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/eventos.js') }}"></script>
+{% endblock %}

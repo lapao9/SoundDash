@@ -1,0 +1,30 @@
+{% set active_page = 'mapa' %}
+{% extends 'base.html' %}
+
+{% block title %}Mapa de Sensores - SoundDashHosp{% endblock %}
+
+{% block header_tagline %}Mapa de Sensores no Hospital{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mapa.css') }}" />
+{% endblock %}
+
+{% block content %}
+<main class="container my-5">
+  <div class="row g-4">
+    <div class="col-md-6">
+      <img src="{{ url_for('static', filename='images/hospMapv1.png') }}" alt="Mapa do Hospital" class="map-image" />
+    </div>
+    <div class="col-md-6">
+      <div id="sensoresLista">
+        <p class="text-muted">A carregar sensores...</p>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/grafana-iframes.js') }}"></script>
+<script src="{{ url_for('static', filename='js/mapa.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoundDashHosp - Dashboard TV</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/display.css') }}" />
+  <script>const GRAFANA_URL = "{{ grafana_url }}";</script>
+</head>
+<body>
+  <div class="sidebar">
+    <iframe id="gaugePanel" class="gauge-frame" src=""></iframe>
+    <div id="classesContainer" class="classes-container"></div>
+    <select id="sensorSelect" class="sensor-selector" onchange="atualizarGrafico()">
+      <option disabled>A carregar...</option>
+    </select>
+    <button id="backButton" class="back-button" onclick="window.location.href='/atual'"> Sair </button>
+  </div>
+
+  <div class="main">
+    <iframe id="graficoLAEA" class="chart-frame" src=""></iframe>
+    <iframe id="NvlFreq"     class="chart-frame" src=""></iframe>
+    <iframe id="Spectogram"  class="chart-frame" src=""></iframe>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/grafana-iframes.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/display.js') }}"></script>
+</body>
+</html>

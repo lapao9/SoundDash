@@ -1,0 +1,99 @@
+{% set active_page = 'tempo' %}
+{% extends 'base.html' %}
+
+{% block title %}SoundDashHosp - Monitorização por Período{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tempo.css') }}" />
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-4">
+  <h1 class="page-title">Monitorização por Período</h1>
+
+  <div class="row gx-0">
+    <div class="col-md-3 px-2">
+      <div class="bg-white shadow-sm rounded p-3">
+        <h5 class="mb-3">Filtro de Datas</h5>
+        <div class="mb-3">
+          <label for="startDate" class="form-label">Data e Hora de Início</label>
+          <input type="datetime-local" class="form-control" id="startDate">
+        </div>
+        <div class="mb-3">
+          <label for="endDate" class="form-label">Data e Hora de Fim</label>
+          <input type="datetime-local" class="form-control" id="endDate">
+        </div>
+        <div class="mb-3">
+          <label for="sensorSelect" class="form-label">Selecione Sensores</label>
+          <select multiple class="form-control" id="sensorSelect">
+            <option disabled>A carregar sensores...</option>
+          </select>
+        </div>
+        <div class="mb-3 d-none" id="parametroBox">
+          <label for="parametroSelect" class="form-label">Parâmetro</label>
+          <select class="form-control" id="parametroSelect">
+            <option value="LAEA">LAF</option>
+            <option value="LCpeak">LCpeak</option>
+            <option value="LAFmax">LAFmax</option>
+            <option value="LAFmin">LAFmin</option>
+          </select>
+        </div>
+        <button class="btn btn-primary w-100" onclick="atualizarGrafico()">Atualizar Gráficos</button>
+        <button class="btn btn-outline-secondary w-100 mt-2" onclick="downloadCSV()">Descarregar CSV</button>
+
+        <div id="statsBox" class="mt-4 bg-light p-3 rounded shadow-sm d-none">
+          <h6>Estatísticas do Intervalo Selecionado</h6>
+          <ul class="list-group list-group-flush">
+            <li class="list-group-item">LAeq: <span id="laeq">- dB</span></li>
+            <li class="list-group-item">Lcpeak: <span id="lcpeak">- dB</span></li>
+            <li class="list-group-item">LAFmax: <span id="lafmax">- dB</span></li>
+            <li class="list-group-item">LAFmin: <span id="lafmin">- dB</span></li>
+            <li class="list-group-item">LA50: <span id="la50">- dB</span></li>
+            <li class="list-group-item">LA90: <span id="la95">- dB</span></li>
+            <li class="list-group-item fw-bold mt-2">Cálculo Lden ( <span id="diaAnterior"></span>)</li>
+            <li class="list-group-item">Turno 1 (00:00-8:00h): <span id="laeqNight">- dB</span></li>
+            <li class="list-group-item">Turno 2 (8:00-16:00h): <span id="laeqDay">- dB</span></li>
+            <li class="list-group-item">Turno 3 (16:00-00:00h): <span id="laeqEvening">- dB</span></li>
+            <li class="list-group-item">Lden: <span id="lden">- dB</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-9 px-3">
+      <div class="mb-4" id="multiSensorGrafico" style="display:none;">
+        <h5>Comparativo entre Sensores</h5>
+        <iframe id="graficoComparativo" class="full-width-iframe" src=""></iframe>
+      </div>
+      <div id="graficoContainer">
+        <div class="mb-4">
+          <h5>Níveis Sonoros no Periodo - dB</h5>
+          <iframe id="graficoLAEA" class="full-width-iframe" src=""></iframe>
+        </div>
+        <div class="mb-4">
+          <h5>Eventos Registados</h5>
+          <iframe id="Eventos" class="full-width-iframe" src=""></iframe>
+        </div>
+        <div class="mb-4">
+          <h5>Espectograma</h5>
+          <iframe id="Espectogram" class="full-width-iframe" src=""></iframe>
+        </div>
+        <div class="mb-4">
+          <h5>Distribuição LAF (Curva KDE)</h5>
+          <div id="kdeChart"></div>
+        </div>
+        <div class="mb-4">
+          <h5>Níveis Sonoros por Bandas de Frequência</h5>
+          <iframe id="NvlFreq" class="full-width-iframe" src=""></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/grafana-iframes.js') }}"></script>
+<script src="{{ url_for('static', filename='js/tempo.js') }}"></script>
+{% endblock %}

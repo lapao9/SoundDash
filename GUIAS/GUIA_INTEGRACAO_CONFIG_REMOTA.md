@@ -33,20 +33,19 @@ pip install paho-mqtt --break-system-packages
 cp config_manager.py /caminho/do/projeto/
 ```
 
-#### 1.3. Modificar webAppGrafana.py
+#### 1.3. Integração com a app Flask (app/\_\_init\_\_.py)
 
-Adicionar no INÍCIO do ficheiro (depois dos outros imports):
+O `config_manager` está agora em `app/services/`. No `create_app()`:
 ```python
-from config_manager import ConfigManager
-```
+from app.services.config_manager import ConfigManager
 
-Adicionar DEPOIS de criar a app Flask (`app = Flask(__name__)`):
-```python
-# Inicializar gestor de configurações
 config_mgr = ConfigManager(mqtt_broker='10.64.137.6', mqtt_port=1884)
 config_mgr.start()
+app.config_mgr = config_mgr
 print("[Flask] ConfigManager iniciado")
 ```
+
+Nos endpoints da API, aceder via `current_app.config_mgr`.
 
 Adicionar as ROTAS (antes do `if __name__ == '__main__':`):
 ```python
@@ -72,25 +71,17 @@ cp templates/controlo.html templates/controlo.html.backup
 cp controlo_updated.html templates/controlo.html
 ```
 
-#### 1.5. Atualizar rota /controlo no webAppGrafana.py
+#### 1.5. Rota /controlo (já configurada na refatorização)
 
-Modificar a rota para passar `grafana_url` ao template:
-```python
-@app.route('/controlo')
-@login_required
-def controlo():
-    config = load_system_config()
-    return render_template('controlo.html', grafana_url=config['grafana_url'])
-```
+A rota está em `app/blueprints/pages/routes.py` e já passa `grafana_url`. Nenhuma alteração necessária.
 
 #### 1.6. Reiniciar Flask
 ```bash
 # Parar o Flask se estiver a correr
 # Ctrl+C se estiver em foreground
-# Ou: pkill -f webAppGrafana.py
 
 # Arrancar novamente
-python webAppGrafana.py
+python run.py
 ```
 
 **Verificar logs:**
@@ -429,11 +420,9 @@ Se encontrares problemas:
 
 ### Servidor (VM ISEL)
 - [ ] `pip install paho-mqtt` instalado
-- [ ] `config_manager.py` copiado para o projeto
-- [ ] `webAppGrafana.py` modificado (imports + ConfigManager + rotas)
-- [ ] `controlo.html` substituído pelo novo
-- [ ] Rota `/controlo` atualizada para passar `grafana_url`
-- [ ] Flask reiniciado
+- [ ] `config_manager.py` está em `app/services/config_manager.py`
+- [ ] `app/__init__.py` importa `from app.services.config_manager import ConfigManager`
+- [ ] Flask reiniciado (`python run.py`)
 - [ ] Logs mostram `[ConfigManager] Thread MQTT iniciada`
 
 ### Estação (RPi)

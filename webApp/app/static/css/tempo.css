@@ -1,0 +1,23 @@
+.page-title {
+  margin-top: 3rem;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.full-width-iframe {
+  width: 100%;
+  height: 250px;
+  border: none;
+}
+
+#kdeChart {
+  width: 100%;
+  height: 250px;
+  background-color: #111217;
+  box-shadow: 0 0 8px rgba(0,0,0,0.2);
+}
+
+#kdeChart > div > svg {
+  border-radius: 6px !important;
+  overflow: hidden;
+}

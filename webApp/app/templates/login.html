@@ -1,0 +1,84 @@
+{% extends 'base_minimal.html' %}
+
+{% block title %}SoundDashHosp - Login{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}" />
+{% endblock %}
+
+{% block content %}
+<a href="/" class="back-to-home">
+  <i class="bi bi-arrow-left"></i>
+  Voltar ao Início
+</a>
+
+<div class="login-container">
+  <div class="login-card row g-0">
+    <div class="col-lg-6 login-left">
+      <div>
+        <div class="logo">SoundDashHosp</div>
+        <div class="tagline">Área Técnica de Controlo e Configuração</div>
+        <div class="features-list">
+          <div class="feature-item">
+            <i class="bi bi-gear me-2 text-white"></i>
+            <span>Configuração de Sensores</span>
+          </div>
+          <div class="feature-item">
+            <i class="bi bi-sliders me-2 text-white"></i>
+            <span>Ajuste de Parâmetros</span>
+          </div>
+          <div class="feature-item">
+            <i class="bi bi-tools me-2 text-white"></i>
+            <span>Manutenção do Sistema</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6 login-right">
+      <div class="login-form">
+        <h2>Acesso Técnico</h2>
+        <p class="login-subtitle">Inicie sessão para aceder ao painel de controlo</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div>
+          {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="/acesso-tecnico" id="loginForm" novalidate>
+          <div class="form-floating">
+            <input type="text" name="username" class="form-control" id="username"
+                   placeholder="Nome de utilizador" required autofocus />
+            <label for="username">Nome de utilizador</label>
+          </div>
+          <div class="form-floating">
+            <input type="password" name="password" class="form-control" id="password"
+                   placeholder="Palavra-passe" required />
+            <label for="password">Palavra-passe</label>
+          </div>
+          <button type="submit" class="btn btn-login">
+            <i class="bi bi-gear-fill me-2"></i>
+            Aceder ao Painel de Controlo
+          </button>
+          <div class="security-badge">
+            <i class="bi bi-shield-fill-check"></i>
+            <span>Acesso restrito a técnicos autorizados</span>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/login.js') }}"></script>
+{% endblock %}

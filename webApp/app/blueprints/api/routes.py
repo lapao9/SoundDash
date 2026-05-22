@@ -1,0 +1,433 @@
+from flask import Blueprint, request, jsonify, Response, current_app
+from flask_login import login_required
+from datetime import datetime
+from collections import defaultdict
+from io import StringIO
+import csv
+import json
+from tqdm import tqdm
+
+from influxdb_client import InfluxDBClient
+from app.config import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET
+from app.services.influx import (
+    get_client, to_rfc3339, parse_interval_to_days, pode_usar_bucket_agregado
+)
+from app.services.acoustics import (
+    calcular_media_db, calcular_lden_db, fetch_valores_db
+)
+from app.services.system_config import load_system_config, save_system_config
+
+api_bp = Blueprint('api', __name__, url_prefix='/api')
+
+
+@api_bp.route('/lden')
+def get_lden():
+    start_str  = request.args.get('start')
+    end_str    = request.args.get('end')
+    sensor     = request.args.get('sensor_id')
+
+    if not start_str or not end_str or not sensor:
+        return jsonify({'error': "Parâmetros 'start', 'end' e 'sensor_id' são obrigatórios"}), 400
+
+    try:
+        start_dt = datetime.fromisoformat(start_str.replace('Z', ''))
+        end_dt   = datetime.fromisoformat(end_str.replace('Z', ''))
+    except Exception:
+        return jsonify({'error': 'Formato de data inválido'}), 400
+
+    d0  = start_dt.replace(hour=0,  minute=0,  second=0,  microsecond=0)
+    d8  = start_dt.replace(hour=8,  minute=0,  second=0,  microsecond=0)
+    d20 = start_dt.replace(hour=20, minute=0,  second=0,  microsecond=0)
+    d23 = start_dt.replace(hour=23, minute=0,  second=0,  microsecond=0)
+    d24 = start_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    valores_dia    = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d8),  to_rfc3339(d20))
+    valores_tarde  = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d20), to_rfc3339(d23))
+    valores_noite1 = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d0),  to_rfc3339(d8))
+    valores_noite2 = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d23), to_rfc3339(d24))
+
+    Lday     = calcular_media_db(valores_dia)
+    Levening = calcular_media_db(valores_tarde)
+    Lnight   = calcular_media_db(valores_noite1 + valores_noite2)
+
+    if None in (Lday, Levening, Lnight):
+        return jsonify({'error': 'Sem dados suficientes'}), 404
+
+    Lden = calcular_lden_db(Lday, Levening, Lnight)
+    return jsonify({
+        'laeq_night':   round(Lnight,   2),
+        'laeq_day':     round(Lday,     2),
+        'laeq_evening': round(Levening, 2),
+        'lden':         round(Lden,     2)
+    })
+
+
+@api_bp.route('/eventos')
+def get_eventos():
+    sensor    = request.args.get('sensor')
+    start_raw = request.args.get('start')
+    end_raw   = request.args.get('end')
+
+    if not sensor:
+        return jsonify({'erro': 'Sensor não especificado'}), 400
+    if not start_raw or not end_raw:
+        return jsonify({'erro': "Parâmetros 'start' e 'end' são obrigatórios"}), 400
+
+    try:
+        start_dt = datetime.strptime(start_raw, '%Y-%m-%dT%H:%M')
+        end_dt   = datetime.strptime(end_raw,   '%Y-%m-%dT%H:%M')
+        start    = start_dt.isoformat() + 'Z'
+        end      = end_dt.isoformat()   + 'Z'
+    except ValueError as e:
+        return jsonify({'erro': f'Formato inválido de data. Use YYYY-MM-DDTHH:MM. Detalhes: {str(e)}'}), 400
+
+    fields = ['EventDetect'] + [f'EventType{i}' for i in range(1, 11)]
+    field_filter = ' or '.join([f'r["_field"] == "{f}"' for f in fields])
+
+    query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
+        |> range(start: {start}, stop: {end})
+        |> filter(fn: (r) => r["_measurement"] == "{sensor}" and ({field_filter}))
+        |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+        |> filter(fn: (r) => r["EventDetect"] > 0)
+        |> sort(columns: ["_time"])
+    '''
+
+    try:
+        client = InfluxDBClient(url=INFLUXDB_URL, timeout=35000, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
+        tables = client.query_api().query(query)
+    except Exception as e:
+        return jsonify({'erro': f'Erro ao consultar o InfluxDB: {str(e)}'}), 500
+
+    dados = []
+    for table in tables:
+        for row in table.records:
+            valores = row.values
+            registro = {
+                'time': row.get_time().isoformat(),
+                'sensor': valores.get('sensor_id'),
+                'EventDetect': valores.get('EventDetect'),
+            }
+            for i in range(1, 11):
+                registro[f'EventType{i}'] = valores.get(f'EventType{i}', 0)
+            dados.append(registro)
+    return jsonify(dados)
+
+
+@api_bp.route('/classes')
+def get_classes():
+    sensor = request.args.get('sensor_id')
+    query = f"""
+from(bucket: "SoundDashHosp")
+  |> range(start: -5m)
+  |> filter(fn: (r) => r["_measurement"] == "{sensor}")
+  |> filter(fn: (r) =>
+    r["_field"] == "Class1Score" or r["_field"] == "Class1ID" or
+    r["_field"] == "Class2Score" or r["_field"] == "Class2ID" or
+    r["_field"] == "Class3Score" or r["_field"] == "Class3ID"
+  )
+  |> last()
+  |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+"""
+    client = get_client()
+    try:
+        tables = client.query_api().query_data_frame(query)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+    if tables.empty:
+        return jsonify([])
+
+    id_to_name = current_app.id_to_name
+    results = []
+    for i in [1, 2, 3]:
+        class_id = int(tables[f'Class{i}ID'][0])
+        score    = float(tables[f'Class{i}Score'][0])
+        results.append({
+            'ClassID':    class_id,
+            'ClassName':  id_to_name.get(class_id, 'Unknown'),
+            'ClassScore': score
+        })
+    return jsonify(results)
+
+
+@api_bp.route('/stats')
+def get_stats():
+    start       = request.args.get('start')
+    end         = request.args.get('end')
+    measurement = request.args.get('sensor_id')
+    window      = request.args.get('window', '1m')
+
+    if not start or not end or not measurement:
+        return jsonify({'error': "Parâmetros 'start', 'end' e 'measurement' são obrigatórios."}), 400
+
+    try:
+        start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+        end_dt   = datetime.fromisoformat(end.replace('Z', '+00:00'))
+    except ValueError:
+        return jsonify({'error': 'Formato de data inválido.'}), 400
+
+    duration_days = (end_dt - start_dt).total_seconds() / (3600 * 24)
+    client    = get_client()
+    query_api = client.query_api()
+    limit     = 10000
+
+    if pode_usar_bucket_agregado(duration_days, 'LAEA'):
+        b_laea = 'SoundDashHosp_hourly'
+        m_laea = f'{measurement}_hourly'
+    else:
+        b_laea = INFLUXDB_BUCKET
+        m_laea = measurement
+
+    queries = {
+        'laea': f'''
+            from(bucket: "{b_laea}")
+              |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
+              |> filter(fn: (r) => r["_measurement"] == "{m_laea}")
+              |> filter(fn: (r) => r["_field"] == "LAEA")
+              |> aggregateWindow(every: {window}, fn: mean, createEmpty: false)
+              |> limit(n: {limit})
+        ''',
+        'lcpeak': f'''
+            from(bucket: "{INFLUXDB_BUCKET}")
+              |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
+              |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+              |> filter(fn: (r) => r["_field"] == "LCpeak")
+              |> aggregateWindow(every: {window}, fn: max, createEmpty: false)
+              |> limit(n: {limit})
+        ''',
+        'lafmax': f'''
+            from(bucket: "{INFLUXDB_BUCKET}")
+              |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
+              |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+              |> filter(fn: (r) => r["_field"] == "LAFmax")
+              |> aggregateWindow(every: {window}, fn: max, createEmpty: false)
+              |> limit(n: {limit})
+        ''',
+        'lafmin': f'''
+            from(bucket: "{INFLUXDB_BUCKET}")
+              |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
+              |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+              |> filter(fn: (r) => r["_field"] == "LAFmin")
+              |> aggregateWindow(every: {window}, fn: min, createEmpty: false)
+              |> limit(n: {limit})
+        '''
+    }
+
+    def process_query(query):
+        tables  = query_api.query(query, org=INFLUXDB_ORG)
+        results = []
+        for table in tables:
+            for record in table.records:
+                if record.get_value() is not None:
+                    results.append({'time': record.get_time().isoformat(), 'value': record.get_value()})
+        return results
+
+    try:
+        data = {key: process_query(q) for key, q in queries.items()}
+        data['warning'] = f'Dados limitados a {limit} pontos por série devido ao volume'
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': f'Erro ao processar dados: {str(e)}'}), 500
+    finally:
+        client.close()
+
+
+@api_bp.route('/stats/stream')
+def get_stats_stream():
+    start       = request.args.get('start')
+    end         = request.args.get('end')
+    measurement = request.args.get('sensor_id')
+
+    if not start or not end or not measurement:
+        return jsonify({'error': 'Parâmetros obrigatórios em falta'}), 400
+
+    def generate():
+        client    = get_client()
+        query_api = client.query_api()
+        query = f'''
+        from(bucket: "{INFLUXDB_BUCKET}")
+          |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
+          |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+          |> filter(fn: (r) => r["_field"] == "LAEA" or r["_field"] == "LCpeak")
+          |> aggregateWindow(every: 1m, fn: mean, createEmpty: false)
+          |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+        '''
+        yield '{"data": ['
+        first = True
+        try:
+            tables = query_api.query(query, org=INFLUXDB_ORG)
+            for table in tables:
+                for record in table.records:
+                    if not first:
+                        yield ','
+                    else:
+                        first = False
+                    yield json.dumps({
+                        'time':   record.get_time().isoformat(),
+                        'laea':   record.values.get('LAEA'),
+                        'lcpeak': record.values.get('LCpeak')
+                    })
+        except Exception as e:
+            if not first:
+                yield ','
+            yield json.dumps({'error': str(e)})
+        finally:
+            client.close()
+        yield ']}'
+
+    return Response(generate(), mimetype='application/json')
+
+
+@api_bp.route('/download')
+def download_csv():
+    start       = request.args.get('start')
+    end         = request.args.get('end')
+    measurement = request.args.get('sensor_id')
+
+    if not start or not end or not measurement:
+        return jsonify({'error': "Parâmetros 'start', 'end' e 'measurement' são obrigatórios."}), 400
+
+    try:
+        datetime.fromisoformat(start.replace('Z', '+00:00'))
+        datetime.fromisoformat(end.replace('Z', '+00:00'))
+    except ValueError:
+        return jsonify({'error': 'Formato de data inválido.'}), 400
+
+    client    = get_client()
+    query_api = client.query_api()
+    query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
+      |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
+      |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+    '''
+    tables = query_api.query(query, org=INFLUXDB_ORG)
+
+    data_by_time = defaultdict(dict)
+    fields = set()
+    for table in tables:
+        for record in table.records:
+            timestamp = record.get_time().isoformat()
+            field     = record.get_field()
+            value     = record.get_value()
+            data_by_time[timestamp][field] = value
+            fields.add(field)
+
+    fields = list(fields)
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['timestamp'] + fields)
+    for timestamp in tqdm(sorted(data_by_time.keys()), desc='A Processar: '):
+        writer.writerow([timestamp] + [data_by_time[timestamp].get(f, '') for f in fields])
+
+    output.seek(0)
+    return Response(
+        output,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment;filename=SoundData_{start}_{end}.csv'}
+    )
+
+
+@api_bp.route('/sensores')
+def get_sensores():
+    try:
+        client = get_client()
+        query = f'''
+        import "influxdata/influxdb/schema"
+        schema.measurements(bucket: "{INFLUXDB_BUCKET}")
+        '''
+        tables  = client.query_api().query(query, org=INFLUXDB_ORG)
+        sensores = []
+        for table in tables:
+            for record in table.records:
+                nome = record.get_value()
+                if nome and (nome.startswith('sensor') or nome.startswith('Sensor')):
+                    sensores.append(nome)
+        return jsonify(sorted(set(sensores)))
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
+@api_bp.route('/parametros/<sensor_id>', methods=['GET'])
+def get_parametros(sensor_id):
+    return current_app.config_mgr.get_config(sensor_id)
+
+
+@api_bp.route('/parametros', methods=['POST'])
+def update_parametros():
+    return current_app.config_mgr.update_config()
+
+
+@api_bp.route('/system_config', methods=['POST'])
+@login_required
+def update_system_config():
+    try:
+        data = request.get_json()
+        grafana_url = data.get('grafana_url', '').strip()
+        if not grafana_url:
+            return jsonify({'erro': 'URL do Grafana não pode ser vazio'}), 400
+        config = load_system_config()
+        config['grafana_url'] = grafana_url
+        save_system_config(config)
+        return jsonify({'mensagem': 'Configuração guardada com sucesso!'})
+    except Exception as e:
+        return jsonify({'erro': str(e)}), 500
+
+
+@api_bp.route('/data')
+def get_data():
+    try:
+        start     = request.args.get('start', '-5m')
+        stop      = request.args.get('stop', 'now()')
+        sensor_id = request.args.get('sensor_id')
+        field     = request.args.get('field', 'LAEA')
+
+        if not sensor_id:
+            return jsonify({'error': 'Missing sensor_id parameter'}), 400
+
+        duration_days = parse_interval_to_days(start)
+
+        if pode_usar_bucket_agregado(duration_days, field):
+            bucket_name = 'SoundDashHosp_hourly'
+            measurement = f'sensor{sensor_id}_hourly'
+            strategy    = f"pre-aggregated hourly (field '{field}' available)"
+        else:
+            bucket_name = INFLUXDB_BUCKET
+            measurement = f'sensor{sensor_id}'
+            strategy    = 'raw data (1s resolution)' if duration_days <= 7 else f"raw data (field '{field}' not aggregated)"
+
+        query = f'''
+        from(bucket: "{bucket_name}")
+          |> range(start: {start}, stop: {stop})
+          |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+          |> filter(fn: (r) => r["_field"] == "{field}")
+        '''
+
+        client = get_client()
+        result = client.query_api().query(query, org=INFLUXDB_ORG)
+
+        data = [
+            {'time': record.get_time().isoformat(), 'value': round(record.get_value(), 2)}
+            for table in result for record in table.records
+        ]
+
+        return jsonify({
+            'success': True,
+            'data': data,
+            'meta': {
+                'sensor_id':    sensor_id,
+                'field':        field,
+                'interval':     start,
+                'duration_days': round(duration_days, 2),
+                'bucket':       bucket_name,
+                'measurement':  measurement,
+                'points':       len(data),
+                'strategy':     strategy
+            }
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+    finally:
+        if 'client' in locals():
+            client.close()

@@ -1,0 +1,85 @@
+{% set active_page = 'atual' %}
+{% extends 'base.html' %}
+
+{% block title %}SoundDashHosp - Monitoramento Atual{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/atual.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-5">
+  <h1 class="text-center mb-4">Monitorização Sonora em Tempo Real</h1>
+
+  <div class="row gx-5">
+    <div class="col-md-3">
+      <div class="bg-white shadow-sm rounded p-4">
+        <h5 class="mb-3">Intervalo de Tempo</h5>
+        <div class="mb-3">
+          <div class="form-check"><input class="form-check-input" type="radio" name="intervalo" id="opt5m" value="5m" checked><label class="form-check-label" for="opt5m">Últimos 5 minutos</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="intervalo" id="opt1h" value="1h"><label class="form-check-label" for="opt1h">Última 1 hora</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="intervalo" id="opt1d" value="1d"><label class="form-check-label" for="opt1d">Últimas 24 horas</label></div>
+          <div class="form-check"><input class="form-check-input" type="radio" name="intervalo" id="opt1w" value="7d"><label class="form-check-label" for="opt1w">Últimos 7 dias</label></div>
+        </div>
+
+        <div class="mt-4">
+          <h5 class="mb-2">Selecionar Sensores</h5>
+          <select id="sensorSelect" class="form-select" multiple size="4" onchange="atualizarGrafico()">
+            <option disabled>A carregar sensores...</option>
+          </select>
+          <small class="text-muted d-block mt-1">Segure Ctrl (Windows) ou Cmd (Mac) para selecionar vários.</small>
+        </div>
+
+        <div class="mt-4" id="paramContainer">
+          <h5 class="mb-2">Selecionar Parâmetro</h5>
+          <select id="paramSelect" class="form-select" onchange="atualizarGrafico()">
+            <option value="LAEA" selected>LAF</option>
+            <option value="LCpeak">LCpeak</option>
+            <option value="LAFmax">LAFmax</option>
+            <option value="LAFmin">LAFmin</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary w-100 mt-4" onclick="atualizarGrafico()">Atualizar Gráficos</button>
+        <div class="text-center mt-3">
+          <a href="/display" class="btn btn-outline-primary w-100">Modo Display</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-9">
+      <div id="graficoContainer">
+        <div class="mb-4" id="graficoLAEA_box">
+          <h5>Níveis Sonoros em Contínuo - dB</h5>
+          <iframe id="graficoLAEA" class="full-width-iframe"></iframe>
+        </div>
+        <div class="mb-4" id="Spectogram_box">
+          <h5>Espectograma</h5>
+          <iframe id="Spectogram" class="full-width-iframe"></iframe>
+        </div>
+        <div class="mb-4" id="Eventos_box">
+          <h5>Tipos de Eventos</h5>
+          <iframe id="Eventos" class="full-width-iframe"></iframe>
+        </div>
+        <div class="mb-4">
+          <div id="classesRow" class="d-flex flex-wrap gap-3"></div>
+        </div>
+        <div class="mb-4" id="NvlFreq_box">
+          <h5>Níveis Sonoros por Bandas de Frequência - Hz</h5>
+          <iframe id="NvlFreq" class="part-width-iframe"></iframe>
+          <iframe id="Gauges" class="rest-width-iframe"></iframe>
+        </div>
+        <div class="mb-4 d-none" id="graficoMulti_box">
+          <h5>Comparativo por Parâmetro</h5>
+          <iframe id="graficoMulti" class="full-width-iframe"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/grafana-iframes.js') }}"></script>
+<script src="{{ url_for('static', filename='js/atual.js') }}"></script>
+{% endblock %}

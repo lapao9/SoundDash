@@ -1,0 +1,47 @@
+# PowerShell Admin
+
+# ========== FLASK ==========
+# --- Instalação nova ---
+nssm install SoundDash-Flask "C:\Users\laa\AppData\Local\Python\bin\python.exe" "run.py"
+nssm set SoundDash-Flask AppDirectory "C:\Users\laa\Desktop\SoundDash\webApp"
+nssm set SoundDash-Flask DisplayName "SoundDash Flask Web"
+nssm set SoundDash-Flask Start SERVICE_AUTO_START
+
+# --- Atualizar instalação existente (uninstall + reinstall) ---
+nssm stop SoundDash-Flask
+nssm uninstall SoundDash-Flask confirm
+nssm install SoundDash-Flask "C:\Users\laa\AppData\Local\Python\bin\python.exe" "run.py"
+nssm set SoundDash-Flask AppDirectory "C:\Users\laa\Desktop\SoundDash\webApp"
+nssm set SoundDash-Flask DisplayName "SoundDash Flask Web"
+nssm set SoundDash-Flask Start SERVICE_AUTO_START
+nssm start SoundDash-Flask
+
+# ========== INFLUXDB==========
+nssm install SoundDash-InfluxDB "C:\Users\laa\Desktop\SoundDash\InfluxData\influxd.exe"
+nssm set SoundDash-InfluxDB AppParameters "--bolt-path=C:\Users\laa\.influxdbv2\influxd.bolt --engine-path=C:\Users\laa\.influxdbv2\engine"
+nssm set SoundDash-InfluxDB DisplayName "SoundDash InfluxDB"
+nssm set SoundDash-InfluxDB Start SERVICE_AUTO_START
+
+# ========== MOSQUITTO ==========
+nssm install SoundDash-Mosquitto "C:\Users\laa\Desktop\SoundDash\mosquitto\mosquitto.exe" "-c" "mosquittoV1.conf"
+nssm set SoundDash-Mosquitto AppDirectory "C:\Users\laa\Desktop\SoundDash\mosquitto"
+nssm set SoundDash-Mosquitto DisplayName "SoundDash Mosquitto"
+nssm set SoundDash-Mosquitto Start SERVICE_AUTO_START
+
+# ========== 4. NODE-RED ==========
+nssm install SoundDash-NodeRED "C:\Program Files\nodejs\node.exe" "C:\Users\laa\AppData\Roaming\npm\node_modules\node-red\red.js" "-u" "C:\Users\laa\.node-red"
+nssm set SoundDash-NodeRED DisplayName "SoundDash NodeRED"
+nssm set SoundDash-NodeRED Start SERVICE_AUTO_START
+
+# ========== 5. NGINX ==========
+nssm install SoundDash-Nginx "C:\nginx\nginx-1.29.8\nginx.exe"
+nssm set SoundDash-Nginx AppDirectory "C:\nginx\nginx-1.29.8\ "
+nssm set SoundDash-Nginx DisplayName "SoundDash Nginx"
+nssm set SoundDash-Nginx Start SERVICE_AUTO_START
+
+
+# =========== START EVERYTHING ============
+nssm start SoundDash-InfluxDB
+nssm start SoundDash-Mosquitto
+nssm start SoundDash-NodeRED
+nssm start SoundDash-Flask

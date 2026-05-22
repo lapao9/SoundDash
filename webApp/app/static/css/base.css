@@ -1,0 +1,71 @@
+/* ===== VARIÁVEIS ===== */
+:root {
+  --blue: #3498db;
+  --dark: #2c3e50;
+  --bg: #f5f8fa;
+  --text: #333;
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+/* ===== BASE ===== */
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+/* ===== HEADER ===== */
+header {
+  background: linear-gradient(135deg, var(--dark), var(--blue));
+  color: white;
+  padding: 2rem 0;
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+
+.logo {
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+.tagline {
+  font-size: 1.2rem;
+  opacity: 0.9;
+}
+
+/* ===== NAV ===== */
+nav {
+  background-color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.nav-link {
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  color: #333 !important;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  background-color: var(--blue);
+  color: white !important;
+}
+
+/* ===== FOOTER ===== */
+footer {
+  background-color: var(--dark);
+  color: white;
+  padding: 3rem 0;
+}
+
+.footer-links a {
+  color: rgba(255,255,255,0.8);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.footer-links a:hover {
+  color: white;
+}

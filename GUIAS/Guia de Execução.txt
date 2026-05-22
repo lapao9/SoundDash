@@ -18,7 +18,7 @@ Carregar em Deploy (canto superior direito)
 
 Grafana disponivel no url localhost:3000, ir a Dashboards e de seguida Dash1 (======faltam as credenciais=======)
 
-Executar a webApp na pasta webapp abrindo um cmd e correndo: py webAppGrafana.py 
+Executar a webApp na pasta webapp abrindo um cmd e correndo: py run.py
 Interface disponivel no url localhost:5000
 
 Configura��o config.json (======faltam as credenciais=======)

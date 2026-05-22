@@ -6,3 +6,5 @@ webApp/node_modules/
 mosquitto/
 InfluxData/
 data/Levels/
+.claude/
+webApp/benchmark/
