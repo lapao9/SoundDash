@@ -1,7 +1,7 @@
 # PowerShell Admin
 
 # ========== FLASK ==========
-# --- Instalação nova ---
+# --- Instalação nova --- ( ANTIGO )
 nssm install SoundDash-Flask "C:\Users\laa\AppData\Local\Python\bin\python.exe" "run.py"
 nssm set SoundDash-Flask AppDirectory "C:\Users\laa\Desktop\SoundDash\webApp"
 nssm set SoundDash-Flask DisplayName "SoundDash Flask Web"
@@ -9,12 +9,11 @@ nssm set SoundDash-Flask Start SERVICE_AUTO_START
 
 # --- Atualizar instalação existente (uninstall + reinstall) ---
 nssm stop SoundDash-Flask
-nssm uninstall SoundDash-Flask confirm
+nssm remove SoundDash-Flask confirm
 nssm install SoundDash-Flask "C:\Users\laa\AppData\Local\Python\bin\python.exe" "run.py"
 nssm set SoundDash-Flask AppDirectory "C:\Users\laa\Desktop\SoundDash\webApp"
 nssm set SoundDash-Flask DisplayName "SoundDash Flask Web"
 nssm set SoundDash-Flask Start SERVICE_AUTO_START
-nssm start SoundDash-Flask
 
 # ========== INFLUXDB==========
 nssm install SoundDash-InfluxDB "C:\Users\laa\Desktop\SoundDash\InfluxData\influxd.exe"
