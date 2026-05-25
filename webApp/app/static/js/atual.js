@@ -23,7 +23,8 @@ async function atualizarTabelaClasses() {
 function atualizarGrafico() {
   const intervalo = document.querySelector('input[name="intervalo"]:checked').value;
   const from = `now-${intervalo}`;
-  const to = 'now';
+  //const to = 'now';
+  const to = 'now-30s';
 
   const sensorSelect = document.getElementById('sensorSelect');
   const sensoresSelecionados = Array.from(sensorSelect.selectedOptions).map(opt => opt.value);
