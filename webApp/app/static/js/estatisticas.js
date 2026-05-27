@@ -8,7 +8,7 @@ let vistaAtual = 'mensal';
 
 function dbToColor(value) {
   if (value === null || value === undefined) return null;
-  const min = 40, max = 60;
+  const min = 40, max = 55;
   const ratio = Math.max(0, Math.min(1, (value - min) / (max - min)));
   const hue = (1 - ratio) * 120;
   const sat = 70 + ratio * 10;
