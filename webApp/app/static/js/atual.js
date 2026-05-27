@@ -24,7 +24,7 @@ function atualizarGrafico() {
   const intervalo = document.querySelector('input[name="intervalo"]:checked').value;
   const from = `now-${intervalo}`;
   //const to = 'now';
-  const to = 'git ';
+  const to = 'now-1m';
 
   const sensorSelect = document.getElementById('sensorSelect');
   const sensoresSelecionados = Array.from(sensorSelect.selectedOptions).map(opt => opt.value);
