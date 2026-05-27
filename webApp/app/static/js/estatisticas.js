@@ -97,11 +97,11 @@ function renderCalendar(dias, param) {
           td.style.backgroundColor = dbToColor(colorVal);
           const labels = ['T1','T2','T3'];
           const keys   = ['turno1','turno2','turno3'];
-          td.innerHTML = keys.map((k, i) => {
+          td.innerHTML = '<div class="turno-cell-inner">' + keys.map((k, i) => {
             const v = info[k];
             const bold = k === param ? ' style="font-weight:900"' : '';
             return `<span class="turno-row"${bold}>${labels[i]} ${v !== null ? v.toFixed(1) : '—'}</span>`;
-          }).join('');
+          }).join('') + '</div>';
           td.title = `${dateStr} — T1: ${info.turno1??'—'} / T2: ${info.turno2??'—'} / T3: ${info.turno3??'—'} dB`;
         } else {
           const val = info[param];
