@@ -182,6 +182,20 @@
   flex-shrink: 0;
 }
 
+.cell-events {
+  font-size: 0.70rem;
+  font-weight: 600;
+  opacity: 0.90;
+  padding: 2px 0;
+  text-align: center;
+  letter-spacing: 0.03em;
+  color: rgba(255,255,230,0.95);
+}
+
+.semanal-cell.with-events {
+  height: 76px;
+}
+
 /* ── Semanal legend ── */
 .semanal-legend {
   display: flex;

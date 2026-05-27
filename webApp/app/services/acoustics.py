@@ -97,6 +97,34 @@ def fetch_hourly_campos(sensor: str, start: str, stop: str, campos: list) -> lis
         client.close()
 
 
+def fetch_hourly_event_count(sensor: str, start: str, stop: str) -> list:
+    """Return list of {'time': datetime, 'count': int} with hourly EventDetect count."""
+    query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
+      |> range(start: {start}, stop: {stop})
+      |> filter(fn: (r) => r["_measurement"] == "{sensor}")
+      |> filter(fn: (r) => r["_field"] == "EventDetect")
+      |> filter(fn: (r) => r["_value"] > 0)
+      |> aggregateWindow(every: 1h, fn: count, createEmpty: false)
+    '''
+    try:
+        client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
+        tables = client.query_api().query(query, org=INFLUXDB_ORG)
+        result = []
+        for table in tables:
+            for record in table.records:
+                v = record.get_value()
+                t = record.get_time()
+                if v is not None:
+                    result.append({'time': t, 'count': int(v)})
+        return result
+    except Exception as e:
+        print(f"Erro ao buscar event count horário: {e}")
+        return []
+    finally:
+        client.close()
+
+
 def fetch_laeq_horario(sensor: str, start: str, stop: str) -> list:
     """Return list of {'time': datetime, 'value': float} with hourly LAeq."""
     query = f'''

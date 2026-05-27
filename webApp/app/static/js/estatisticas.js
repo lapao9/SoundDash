@@ -2,7 +2,9 @@ const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DIAS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
-let vistaAtual = 'mensal';
+let vistaAtual      = 'mensal';
+let semanalCache    = null;
+let showEventos     = false;
 
 // ── Color helpers ──────────────────────────────────────────────────────────
 
@@ -203,8 +205,16 @@ function makeCell(cellData) {
   if (color) td.style.backgroundColor = color;
 
   const lcText = cellData.lcpeak !== null ? cellData.lcpeak.toFixed(1) : '—';
-  td.innerHTML = `<div class="cell-inner"><div class="cell-half">${cellData.laeq.toFixed(1)}</div><div class="cell-divider"></div><div class="cell-half">${lcText}</div></div>`;
-  td.title = `LAeq: ${cellData.laeq.toFixed(1)} dB  |  LCpeak: ${lcText} dB`;
+  const evCount = cellData.events ?? 0;
+
+  let evHtml = '';
+  if (showEventos) {
+    td.classList.add('with-events');
+    evHtml = `<div class="cell-divider"></div><div class="cell-events">${evCount > 0 ? evCount + ' ev' : '—'}</div>`;
+  }
+
+  td.innerHTML = `<div class="cell-inner"><div class="cell-half">${cellData.laeq.toFixed(1)}</div><div class="cell-divider"></div><div class="cell-half">${lcText}</div>${evHtml}</div>`;
+  td.title = `LAeq: ${cellData.laeq.toFixed(1)} dB  |  LCpeak: ${lcText} dB  |  Eventos: ${evCount}`;
   return td;
 }
 
@@ -264,6 +274,8 @@ async function atualizarSemanal() {
     const res  = await fetch(`/api/semanal?start=${dateVal}&sensor_id=${sensor}`);
     const data = await res.json();
 
+    semanalCache = data;
+
     const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
     const ws = new Date(data.week_start + 'T00:00:00');
     const we = new Date(data.week_end   + 'T00:00:00');
@@ -281,6 +293,14 @@ async function atualizarSemanal() {
     console.error('Erro ao carregar semanal:', err);
   } finally {
     setLoading(false);
+  }
+}
+
+function toggleEventos() {
+  showEventos = document.getElementById('checkEventos').checked;
+  if (semanalCache) {
+    renderWeeklyHoras(semanalCache);
+    renderWeeklyTurnos(semanalCache);
   }
 }
 

@@ -13,7 +13,8 @@ from app.services.influx import (
     get_client, to_rfc3339, parse_interval_to_days, pode_usar_bucket_agregado
 )
 from app.services.acoustics import (
-    calcular_media_db, calcular_lden_db, fetch_valores_db, fetch_laeq_horario, fetch_hourly_campos
+    calcular_media_db, calcular_lden_db, fetch_valores_db, fetch_laeq_horario,
+    fetch_hourly_campos, fetch_hourly_event_count
 )
 from app.services.system_config import load_system_config, save_system_config
 
@@ -418,7 +419,8 @@ def get_semanal():
     start_rfc = to_rfc3339(week_start.replace(hour=0,  minute=0,  second=0))
     end_rfc   = to_rfc3339(week_end.replace(  hour=23, minute=59, second=59))
 
-    raw = fetch_hourly_campos(sensor, start_rfc, end_rfc, ['LAEA', 'LCpeak'])
+    raw        = fetch_hourly_campos(sensor, start_rfc, end_rfc, ['LAEA', 'LCpeak'])
+    raw_events = fetch_hourly_event_count(sensor, start_rfc, end_rfc)
 
     # Index by (day_str, hour, field)
     idx = defaultdict(lambda: defaultdict(dict))
@@ -427,14 +429,22 @@ def get_semanal():
         day_str = t.strftime('%Y-%m-%d')
         idx[day_str][t.hour][item['field']] = item['value']
 
+    # Index event counts by (day_str, hour)
+    ev_idx = defaultdict(lambda: defaultdict(int))
+    for item in raw_events:
+        t       = item['time']
+        day_str = t.strftime('%Y-%m-%d')
+        ev_idx[day_str][t.hour] = item['count']
+
     days = [(week_start + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)]
 
-    def cell(day, hour_vals):
+    def cell(day, hour_vals, events=None):
         laea   = hour_vals.get('LAEA')
         lcpeak = hour_vals.get('LCpeak')
         return {
             'laeq':   round(laea,   1) if laea   is not None else None,
-            'lcpeak': round(lcpeak, 1) if lcpeak is not None else None
+            'lcpeak': round(lcpeak, 1) if lcpeak is not None else None,
+            'events': events if events else 0
         }
 
     # Hourly rows
@@ -443,7 +453,7 @@ def get_semanal():
         row = {'hour': h, 'label': f'{h:02d}:00', 'data': {}}
         for d in days:
             hv = idx[d].get(h, {})
-            row['data'][d] = cell(d, hv)
+            row['data'][d] = cell(d, hv, ev_idx[d].get(h, 0))
         horas.append(row)
 
     # Shift rows — aggregate hours per shift
@@ -458,11 +468,13 @@ def get_semanal():
         for d in days:
             laea_vals   = [idx[d][h]['LAEA']   for h in hours if 'LAEA'   in idx[d].get(h, {})]
             lcpeak_vals = [idx[d][h]['LCpeak'] for h in hours if 'LCpeak' in idx[d].get(h, {})]
+            ev_total    = sum(ev_idx[d].get(h, 0) for h in hours)
             laeq   = calcular_media_db(laea_vals)
             lcpeak = calcular_media_db(lcpeak_vals)
             row['data'][d] = {
                 'laeq':   round(laeq,   1) if laeq   is not None else None,
-                'lcpeak': round(lcpeak, 1) if lcpeak is not None else None
+                'lcpeak': round(lcpeak, 1) if lcpeak is not None else None,
+                'events': ev_total
             }
         turnos.append(row)
 

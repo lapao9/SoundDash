@@ -51,6 +51,10 @@
           <label class="form-label small text-muted">Seleciona qualquer dia da semana</label>
           <input type="date" class="form-control mb-3" id="weekDateInput">
           <button class="btn btn-primary w-100" onclick="atualizarSemanal()">Atualizar</button>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="checkEventos" onchange="toggleEventos()">
+            <label class="form-check-label small" for="checkEventos">Mostrar eventos detetados</label>
+          </div>
         </div>
 
         <!-- Legenda de cores -->
