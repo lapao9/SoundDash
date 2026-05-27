@@ -97,30 +97,49 @@ def fetch_hourly_campos(sensor: str, start: str, stop: str, campos: list) -> lis
         client.close()
 
 
-def fetch_hourly_event_count(sensor: str, start: str, stop: str) -> list:
-    """Return list of {'time': datetime, 'count': int} with hourly EventDetect count."""
+def fetch_event_intervals_by_hour(sensor: str, start: str, stop: str) -> dict:
+    """
+    Replicates the grouping logic from eventos.js:
+    consecutive EventDetect>0 records with gap <=5s = one event.
+    Returns {(day_str, hour): count} of distinct event intervals per hour.
+    """
     query = f'''
     from(bucket: "{INFLUXDB_BUCKET}")
       |> range(start: {start}, stop: {stop})
       |> filter(fn: (r) => r["_measurement"] == "{sensor}")
       |> filter(fn: (r) => r["_field"] == "EventDetect")
       |> filter(fn: (r) => r["_value"] > 0)
-      |> aggregateWindow(every: 1h, fn: count, createEmpty: false)
+      |> sort(columns: ["_time"])
     '''
     try:
         client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
         tables = client.query_api().query(query, org=INFLUXDB_ORG)
-        result = []
-        for table in tables:
-            for record in table.records:
-                v = record.get_value()
-                t = record.get_time()
-                if v is not None:
-                    result.append({'time': t, 'count': int(v)})
-        return result
+        times = sorted(
+            record.get_time()
+            for table in tables
+            for record in table.records
+            if record.get_time() is not None
+        )
+
+        if not times:
+            return {}
+
+        # Group by 5-second gap — same rule as eventos.js
+        interval_starts = [times[0]]
+        for i in range(1, len(times)):
+            if (times[i] - times[i - 1]).total_seconds() > 5:
+                interval_starts.append(times[i])
+
+        # Count intervals per (day_str, hour) using interval start time
+        counts = {}
+        for t in interval_starts:
+            key = (t.strftime('%Y-%m-%d'), t.hour)
+            counts[key] = counts.get(key, 0) + 1
+
+        return counts
     except Exception as e:
-        print(f"Erro ao buscar event count horário: {e}")
-        return []
+        print(f"Erro ao buscar event intervals: {e}")
+        return {}
     finally:
         client.close()
 
