@@ -68,6 +68,35 @@ def fetch_valores_db(sensor: str, campo: str, start: str, stop: str) -> list:
         client.close()
 
 
+def fetch_hourly_campos(sensor: str, start: str, stop: str, campos: list) -> list:
+    """Return list of {'time': datetime, 'field': str, 'value': float} with hourly mean per field."""
+    field_filter = ' or '.join([f'r["_field"] == "{c}"' for c in campos])
+    query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
+      |> range(start: {start}, stop: {stop})
+      |> filter(fn: (r) => r["_measurement"] == "{sensor}")
+      |> filter(fn: (r) => {field_filter})
+      |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)
+    '''
+    try:
+        client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
+        tables = client.query_api().query(query, org=INFLUXDB_ORG)
+        result = []
+        for table in tables:
+            for record in table.records:
+                v = record.get_value()
+                t = record.get_time()
+                f = record.get_field()
+                if v is not None:
+                    result.append({'time': t, 'field': f, 'value': float(v)})
+        return result
+    except Exception as e:
+        print(f"Erro ao buscar campos horários: {e}")
+        return []
+    finally:
+        client.close()
+
+
 def fetch_laeq_horario(sensor: str, start: str, stop: str) -> list:
     """Return list of {'time': datetime, 'value': float} with hourly LAeq."""
     query = f'''

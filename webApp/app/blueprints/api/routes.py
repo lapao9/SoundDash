@@ -13,7 +13,7 @@ from app.services.influx import (
     get_client, to_rfc3339, parse_interval_to_days, pode_usar_bucket_agregado
 )
 from app.services.acoustics import (
-    calcular_media_db, calcular_lden_db, fetch_valores_db, fetch_laeq_horario
+    calcular_media_db, calcular_lden_db, fetch_valores_db, fetch_laeq_horario, fetch_hourly_campos
 )
 from app.services.system_config import load_system_config, save_system_config
 
@@ -392,6 +392,87 @@ def get_calendario():
         current += timedelta(days=1)
 
     return jsonify({'dias': result})
+
+
+@api_bp.route('/semanal')
+def get_semanal():
+    date_str = request.args.get('start')
+    sensor   = request.args.get('sensor_id')
+
+    if not all([date_str, sensor]):
+        return jsonify({'error': "Parâmetros obrigatórios: start (YYYY-MM-DD), sensor_id"}), 400
+
+    try:
+        ref = datetime.fromisoformat(date_str)
+    except ValueError:
+        return jsonify({'error': 'Formato de data inválido. Use YYYY-MM-DD'}), 400
+
+    # Calculate Sunday–Saturday week
+    week_start = ref - timedelta(days=ref.weekday() + 1) if ref.weekday() != 6 else ref
+    if ref.weekday() == 6:
+        week_start = ref
+    else:
+        week_start = ref - timedelta(days=(ref.weekday() + 1) % 7)
+    week_end = week_start + timedelta(days=6)
+
+    start_rfc = to_rfc3339(week_start.replace(hour=0,  minute=0,  second=0))
+    end_rfc   = to_rfc3339(week_end.replace(  hour=23, minute=59, second=59))
+
+    raw = fetch_hourly_campos(sensor, start_rfc, end_rfc, ['LAEA', 'LCpeak'])
+
+    # Index by (day_str, hour, field)
+    idx = defaultdict(lambda: defaultdict(dict))
+    for item in raw:
+        t       = item['time']
+        day_str = t.strftime('%Y-%m-%d')
+        idx[day_str][t.hour][item['field']] = item['value']
+
+    days = [(week_start + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)]
+
+    def cell(day, hour_vals):
+        laea   = hour_vals.get('LAEA')
+        lcpeak = hour_vals.get('LCpeak')
+        return {
+            'laeq':   round(laea,   1) if laea   is not None else None,
+            'lcpeak': round(lcpeak, 1) if lcpeak is not None else None
+        }
+
+    # Hourly rows
+    horas = []
+    for h in range(24):
+        row = {'hour': h, 'label': f'{h:02d}:00', 'data': {}}
+        for d in days:
+            hv = idx[d].get(h, {})
+            row['data'][d] = cell(d, hv)
+        horas.append(row)
+
+    # Shift rows — aggregate hours per shift
+    TURNOS = [
+        ('t1', 'Turno 1 — 00:00–08:00h', range(0,  8)),
+        ('t2', 'Turno 2 — 08:00–16:00h', range(8,  16)),
+        ('t3', 'Turno 3 — 16:00–00:00h', range(16, 24)),
+    ]
+    turnos = []
+    for tid, label, hours in TURNOS:
+        row = {'id': tid, 'label': label, 'data': {}}
+        for d in days:
+            laea_vals   = [idx[d][h]['LAEA']   for h in hours if 'LAEA'   in idx[d].get(h, {})]
+            lcpeak_vals = [idx[d][h]['LCpeak'] for h in hours if 'LCpeak' in idx[d].get(h, {})]
+            laeq   = calcular_media_db(laea_vals)
+            lcpeak = calcular_media_db(lcpeak_vals)
+            row['data'][d] = {
+                'laeq':   round(laeq,   1) if laeq   is not None else None,
+                'lcpeak': round(lcpeak, 1) if lcpeak is not None else None
+            }
+        turnos.append(row)
+
+    return jsonify({
+        'week_start': week_start.strftime('%Y-%m-%d'),
+        'week_end':   week_end.strftime('%Y-%m-%d'),
+        'days':       days,
+        'horas':      horas,
+        'turnos':     turnos
+    })
 
 
 @api_bp.route('/sensores')
