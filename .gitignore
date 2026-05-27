@@ -8,3 +8,6 @@ InfluxData/
 data/Levels/
 .claude/
 webApp/benchmark/
+__pycache__/
+*.pyc
+*.pyo
