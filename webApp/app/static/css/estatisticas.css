@@ -159,12 +159,47 @@
 
 .cell-laeq {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 700;
 }
 
 .cell-lcpeak {
   display: block;
-  font-size: 0.68rem;
-  opacity: 0.85;
+  font-size: 0.72rem;
+  opacity: 0.80;
+}
+
+/* ── Semanal legend ── */
+.semanal-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #555;
+}
+
+.semanal-legend-sep {
+  color: #bbb;
+}
+
+.badge-laeq, .badge-lcpeak {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-right: 3px;
+}
+
+.badge-laeq {
+  background: rgba(255,255,255,0.25);
+  border: 1px solid #aaa;
+  color: #333;
+}
+
+.badge-lcpeak {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid #ccc;
+  color: #666;
+  font-weight: 500;
 }
