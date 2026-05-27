@@ -203,7 +203,7 @@ function makeCell(cellData) {
   if (color) td.style.backgroundColor = color;
 
   const lcText = cellData.lcpeak !== null ? cellData.lcpeak.toFixed(1) : '—';
-  td.innerHTML = `<span class="cell-laeq">${cellData.laeq.toFixed(1)}</span><br><span class="cell-lcpeak">${lcText}</span>`;
+  td.innerHTML = `<div class="cell-inner"><div class="cell-half">${cellData.laeq.toFixed(1)}</div><div class="cell-divider"></div><div class="cell-half">${lcText}</div></div>`;
   td.title = `LAeq: ${cellData.laeq.toFixed(1)} dB  |  LCpeak: ${lcText} dB`;
   return td;
 }
