@@ -1,6 +1,9 @@
 import json
 from app.config import SYSTEM_CONFIG_FILE
 
+"""
+ Ficheiro para ler e escrever a URL do Grafana com configuração do sistema
+"""
 
 def load_system_config():
     try:
