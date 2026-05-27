@@ -2,6 +2,10 @@ const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DIAS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
+let vistaAtual = 'mensal';
+
+// ── Color helpers ──────────────────────────────────────────────────────────
+
 function dbToColor(value) {
   if (value === null || value === undefined) return null;
   const min = 40, max = 70;
@@ -10,12 +14,41 @@ function dbToColor(value) {
   const sat = 70 + ratio * 10;
   const lig = 38 - ratio * 6;
   return `hsl(${hue.toFixed(0)}, ${sat.toFixed(0)}%, ${lig.toFixed(0)}%)`;
-} // Verde = 40dB, Vermelho = 70dB
+}
+
+// ── Vista toggle ───────────────────────────────────────────────────────────
+
+function setVista(vista) {
+  vistaAtual = vista;
+
+  const isMensal = vista === 'mensal';
+
+  document.getElementById('periodoMensal').classList.toggle('d-none', !isMensal);
+  document.getElementById('periodoSemanal').classList.toggle('d-none', isMensal);
+  document.getElementById('calendarWrap').classList.toggle('d-none', !isMensal);
+  document.getElementById('semanalWrap').classList.toggle('d-none', isMensal);
+  document.getElementById('resumoBox').classList.toggle('d-none', true);
+
+  document.getElementById('btnMensal').className  = isMensal ? 'btn btn-primary btn-sm'         : 'btn btn-outline-primary btn-sm';
+  document.getElementById('btnSemanal').className = isMensal ? 'btn btn-outline-primary btn-sm' : 'btn btn-primary btn-sm';
+}
+
+// ── Loading state ──────────────────────────────────────────────────────────
+
+function setLoading(on) {
+  document.getElementById('loadingMsg').classList.toggle('d-none', !on);
+  const wrap = vistaAtual === 'mensal'
+    ? document.getElementById('calendarWrap')
+    : document.getElementById('semanalWrap');
+  wrap.style.opacity = on ? '0.4' : '1';
+}
+
+// ── Monthly calendar ───────────────────────────────────────────────────────
 
 function formatWeekLabel(startDate, endDate) {
   const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
   return `${fmt(startDate)} – ${fmt(endDate)}`;
-} 
+}
 
 function renderCalendar(dias, param) {
   const body  = document.getElementById('calBody');
@@ -29,19 +62,17 @@ function renderCalendar(dias, param) {
   if (!hasAny) { empty.classList.remove('d-none'); return; }
   empty.classList.add('d-none');
 
-  // Find the Sunday of the week containing the first day
   const firstDay = new Date(dias[0].date + 'T00:00:00');
   const lastDay  = new Date(dias[dias.length - 1].date + 'T00:00:00');
 
   const weekStart = new Date(firstDay);
-  weekStart.setDate(firstDay.getDate() - firstDay.getDay()); // go back to Sunday
+  weekStart.setDate(firstDay.getDate() - firstDay.getDay());
 
   const current = new Date(weekStart);
 
   while (current <= lastDay) {
     const tr = document.createElement('tr');
 
-    // Week label (Sun – Sat)
     const weekEnd = new Date(current);
     weekEnd.setDate(current.getDate() + 6);
     const tdLabel = document.createElement('td');
@@ -92,8 +123,8 @@ function atualizarResumo(dias, param) {
   const minItem = vals.reduce((a, b) => b.val < a.val ? b : a);
 
   document.getElementById('resumoMedia').textContent = `${media} dB`;
-  document.getElementById('resumoMax').textContent   = `${maxItem.date.slice(5).replace('-','/')} (${maxItem.val} dB)`;
-  document.getElementById('resumoMin').textContent   = `${minItem.date.slice(5).replace('-','/')} (${minItem.val} dB)`;
+  document.getElementById('resumoMax').textContent   = `${maxItem.date.slice(5).replace('-','/')} (${maxItem.val.toFixed(1)} dB)`;
+  document.getElementById('resumoMin').textContent   = `${minItem.date.slice(5).replace('-','/')} (${minItem.val.toFixed(1)} dB)`;
   document.getElementById('resumoDias').textContent  = `${vals.length} / ${dias.length}`;
 }
 
@@ -109,8 +140,7 @@ async function atualizarCalendario() {
   const daysInMonth = new Date(ano, mes, 0).getDate();
   const end   = `${ano}-${String(mes).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
 
-  document.getElementById('loadingMsg').classList.remove('d-none');
-  document.getElementById('calendarWrap').style.opacity = '0.4';
+  setLoading(true);
 
   try {
     const res  = await fetch(`/api/calendario?start=${start}&end=${end}&sensor_id=${sensor}`);
@@ -124,10 +154,121 @@ async function atualizarCalendario() {
   } catch (err) {
     console.error('Erro ao carregar calendário:', err);
   } finally {
-    document.getElementById('loadingMsg').classList.add('d-none');
-    document.getElementById('calendarWrap').style.opacity = '1';
+    setLoading(false);
   }
 }
+
+// ── Weekly tables ──────────────────────────────────────────────────────────
+
+function buildDayHeaders(days, headId) {
+  const tr = document.getElementById(headId);
+  // Remove all th except the first (row label)
+  while (tr.children.length > 1) tr.removeChild(tr.lastChild);
+
+  days.forEach(dateStr => {
+    const date = new Date(dateStr + 'T00:00:00');
+    const th = document.createElement('th');
+    th.innerHTML = `<span class="day-name">${DIAS_PT[date.getDay()]}</span><br><span class="day-date">${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}</span>`;
+    tr.appendChild(th);
+  });
+}
+
+function makeCell(cellData) {
+  const td = document.createElement('td');
+  td.className = 'cal-cell semanal-cell';
+
+  if (!cellData || cellData.laeq === null) {
+    td.classList.add('no-data');
+    td.innerHTML = '<span class="cell-laeq">—</span>';
+    return td;
+  }
+
+  const color = dbToColor(cellData.laeq);
+  if (color) td.style.backgroundColor = color;
+
+  const lcText = cellData.lcpeak !== null ? cellData.lcpeak.toFixed(1) : '—';
+  td.innerHTML = `<span class="cell-laeq">${cellData.laeq.toFixed(1)}</span><br><span class="cell-lcpeak">${lcText}</span>`;
+  td.title = `LAeq: ${cellData.laeq.toFixed(1)} dB  |  LCpeak: ${lcText} dB`;
+  return td;
+}
+
+function renderWeeklyHoras(data) {
+  buildDayHeaders(data.days, 'headHoras');
+
+  const body = document.getElementById('bodyHoras');
+  body.innerHTML = '';
+
+  data.horas.forEach(row => {
+    const tr = document.createElement('tr');
+    const tdLabel = document.createElement('td');
+    tdLabel.className = 'row-label';
+    tdLabel.textContent = row.label;
+    tr.appendChild(tdLabel);
+
+    data.days.forEach(dateStr => {
+      tr.appendChild(makeCell(row.data[dateStr] || null));
+    });
+
+    body.appendChild(tr);
+  });
+}
+
+function renderWeeklyTurnos(data) {
+  buildDayHeaders(data.days, 'headTurnos');
+
+  const body = document.getElementById('bodyTurnos');
+  body.innerHTML = '';
+
+  data.turnos.forEach(row => {
+    const tr = document.createElement('tr');
+    const tdLabel = document.createElement('td');
+    tdLabel.className = 'row-label';
+    tdLabel.textContent = row.label;
+    tr.appendChild(tdLabel);
+
+    data.days.forEach(dateStr => {
+      tr.appendChild(makeCell(row.data[dateStr] || null));
+    });
+
+    body.appendChild(tr);
+  });
+}
+
+async function atualizarSemanal() {
+  const sensor  = document.getElementById('sensorSelect').value;
+  const dateVal = document.getElementById('weekDateInput').value;
+
+  if (!sensor || !dateVal) return;
+
+  const empty = document.getElementById('emptySemanal');
+  empty.classList.add('d-none');
+  setLoading(true);
+
+  try {
+    const res  = await fetch(`/api/semanal?start=${dateVal}&sensor_id=${sensor}`);
+    const data = await res.json();
+
+    const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    const ws = new Date(data.week_start + 'T00:00:00');
+    const we = new Date(data.week_end   + 'T00:00:00');
+    document.getElementById('semanalTitle').textContent =
+      `Semana ${fmt(ws)} – ${fmt(we)}`;
+
+    const hasAny = data.horas.some(h => Object.values(h.data).some(c => c && c.laeq !== null));
+    if (!hasAny) {
+      empty.classList.remove('d-none');
+    } else {
+      renderWeeklyHoras(data);
+      renderWeeklyTurnos(data);
+    }
+  } catch (err) {
+    console.error('Erro ao carregar semanal:', err);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
 
 function inicializarSeletores() {
   const now = new Date();
@@ -149,6 +290,11 @@ function inicializarSeletores() {
     if (y === now.getFullYear()) opt.selected = true;
     anoEl.appendChild(opt);
   }
+
+  // Pre-fill week date picker with today
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('weekDateInput').value =
+    `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
 }
 
 window.onload = () => {

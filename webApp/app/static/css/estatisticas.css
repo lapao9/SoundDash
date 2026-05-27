@@ -88,3 +88,61 @@
   color: #666;
   margin-top: 2px;
 }
+
+/* ── Weekly tables ── */
+.cal-table-semanal {
+  border-spacing: 3px;
+}
+
+.cal-table-semanal thead th {
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #555;
+  padding: 4px 6px;
+  white-space: nowrap;
+}
+
+.cal-table-semanal .day-name {
+  display: block;
+  font-weight: 700;
+}
+
+.cal-table-semanal .day-date {
+  display: block;
+  font-weight: 400;
+  font-size: 0.72rem;
+  color: #777;
+}
+
+.cal-table-semanal .semanal-cell {
+  width: 90px;
+  height: 44px;
+  padding: 0;
+  line-height: 1.2;
+}
+
+.row-label-header {
+  width: 150px;
+}
+
+.row-label {
+  font-size: 0.75rem;
+  color: #555;
+  white-space: nowrap;
+  padding-right: 10px;
+  vertical-align: middle;
+  font-weight: 600;
+}
+
+.cell-laeq {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.cell-lcpeak {
+  display: block;
+  font-size: 0.68rem;
+  opacity: 0.85;
+}
