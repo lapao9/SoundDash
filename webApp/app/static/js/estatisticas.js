@@ -8,7 +8,7 @@ let vistaAtual = 'mensal';
 
 function dbToColor(value) {
   if (value === null || value === undefined) return null;
-  const min = 40, max = 70;
+  const min = 40, max = 60;
   const ratio = Math.max(0, Math.min(1, (value - min) / (max - min)));
   const hue = (1 - ratio) * 120;
   const sat = 70 + ratio * 10;
@@ -88,11 +88,27 @@ function renderCalendar(dias, param) {
       td.className = 'cal-cell';
 
       const info = byDate[dateStr];
+      const isTurno = ['turno1','turno2','turno3'].includes(param);
+
       if (info && info.has_data && info[param] !== null) {
-        const val = info[param];
-        td.textContent = val.toFixed(1);
-        td.style.backgroundColor = dbToColor(val);
-        td.title = `${dateStr}: ${val.toFixed(1)} dB`;
+        if (isTurno) {
+          td.classList.add('turno-cell');
+          const colorVal = info[param];
+          td.style.backgroundColor = dbToColor(colorVal);
+          const labels = ['T1','T2','T3'];
+          const keys   = ['turno1','turno2','turno3'];
+          td.innerHTML = keys.map((k, i) => {
+            const v = info[k];
+            const bold = k === param ? ' style="font-weight:900"' : '';
+            return `<span class="turno-row"${bold}>${labels[i]} ${v !== null ? v.toFixed(1) : '—'}</span>`;
+          }).join('');
+          td.title = `${dateStr} — T1: ${info.turno1??'—'} / T2: ${info.turno2??'—'} / T3: ${info.turno3??'—'} dB`;
+        } else {
+          const val = info[param];
+          td.textContent = val.toFixed(1);
+          td.style.backgroundColor = dbToColor(val);
+          td.title = `${dateStr}: ${val.toFixed(1)} dB`;
+        }
       } else if (!info || date < firstDay || date > lastDay) {
         td.classList.add('other-month');
       } else {

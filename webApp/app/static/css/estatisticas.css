@@ -60,6 +60,24 @@
   font-size: 0.8rem;
 }
 
+.cal-cell.turno-cell {
+  height: 72px;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 4px 2px;
+}
+
+.turno-row {
+  display: block;
+  line-height: 1.35;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
 .cal-cell.other-month {
   background: transparent;
 }
