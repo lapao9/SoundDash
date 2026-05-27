@@ -1,0 +1,105 @@
+{% set active_page = 'estatisticas' %}
+{% extends 'base.html' %}
+
+{% block title %}SoundDashHosp - Estatísticas{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/estatisticas.css') }}" />
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-4">
+  <h1 class="page-title">Estatísticas de Níveis Sonoros</h1>
+
+  <div class="row gx-0">
+
+    <!-- Sidebar -->
+    <div class="col-md-3 px-2">
+      <div class="bg-white shadow-sm rounded p-3">
+
+        <h5 class="mb-3">Sensor</h5>
+        <select class="form-control mb-3" id="sensorSelect">
+          <option disabled>A carregar...</option>
+        </select>
+
+        <h5 class="mb-2">Período</h5>
+        <div class="d-flex gap-2 mb-3">
+          <select class="form-control" id="mesSelect"></select>
+          <select class="form-control" id="anoSelect"></select>
+        </div>
+
+        <h5 class="mb-2">Parâmetro</h5>
+        <select class="form-control mb-3" id="paramSelect">
+          <option value="laeq">LAeq diário</option>
+          <option value="turno1">Turno 1 — 00:00–08:00h</option>
+          <option value="turno2">Turno 2 — 08:00–16:00h</option>
+          <option value="turno3">Turno 3 — 16:00–00:00h</option>
+          <option value="lden">Lden</option>
+        </select>
+
+        <button class="btn btn-primary w-100" onclick="atualizarCalendario()">Atualizar</button>
+
+        <!-- Legenda de cores -->
+        <div class="mt-4">
+          <h6>Escala (dB)</h6>
+          <div class="color-legend">
+            <div class="legend-bar"></div>
+            <div class="legend-labels">
+              <span>≤40</span><span>50</span><span>60</span><span>≥70</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resumo mensal -->
+        <div id="resumoBox" class="mt-4 d-none">
+          <h6>Resumo do Mês</h6>
+          <ul class="list-group list-group-flush small">
+            <li class="list-group-item d-flex justify-content-between">
+              <span>Média mensal</span><strong id="resumoMedia">—</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <span>Dia mais ruidoso</span><strong id="resumoMax">—</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <span>Dia mais silencioso</span><strong id="resumoMin">—</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <span>Dias com dados</span><strong id="resumoDias">—</strong>
+            </li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Calendário -->
+    <div class="col-md-9 px-3">
+      <div id="loadingMsg" class="text-center text-muted py-5 d-none">
+        <div class="spinner-border text-primary mb-2"></div>
+        <div>A carregar dados...</div>
+      </div>
+      <div id="calendarWrap">
+        <div id="calendarTitle" class="cal-title"></div>
+        <div class="table-responsive">
+          <table class="cal-table" id="calTable">
+            <thead>
+              <tr>
+                <th class="week-label-header"></th>
+                <th>Dom</th><th>Seg</th><th>Ter</th>
+                <th>Qua</th><th>Qui</th><th>Sex</th><th>Sáb</th>
+              </tr>
+            </thead>
+            <tbody id="calBody"></tbody>
+          </table>
+        </div>
+        <p id="emptyMsg" class="text-center text-muted mt-4 d-none">Sem dados para o período selecionado.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/estatisticas.js') }}"></script>
+{% endblock %}

@@ -44,6 +44,11 @@ def guia():
     return render_template('guia.html', grafana_url=_grafana_url())
 
 
+@pages_bp.route('/estatisticas')
+def estatisticas():
+    return render_template('estatisticas.html', grafana_url=_grafana_url())
+
+
 @pages_bp.route('/controlo')
 @login_required
 def controlo():

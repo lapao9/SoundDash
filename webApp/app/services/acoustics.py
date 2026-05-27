@@ -68,6 +68,32 @@ def fetch_valores_db(sensor: str, campo: str, start: str, stop: str) -> list:
         client.close()
 
 
+def fetch_laeq_horario(sensor: str, start: str, stop: str) -> list:
+    """Return list of {'time': datetime, 'value': float} with hourly LAeq."""
+    query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
+      |> range(start: {start}, stop: {stop})
+      |> filter(fn: (r) => r["_measurement"] == "{sensor}" and r["_field"] == "LAEA")
+      |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)
+    '''
+    try:
+        client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
+        tables = client.query_api().query(query, org=INFLUXDB_ORG)
+        result = []
+        for table in tables:
+            for record in table.records:
+                v = record.get_value()
+                t = record.get_time()
+                if v is not None:
+                    result.append({'time': t, 'value': float(v)})
+        return result
+    except Exception as e:
+        print(f"Erro ao buscar LAeq horário: {e}")
+        return []
+    finally:
+        client.close()
+
+
 def load_class_labels(filepath: str) -> dict:
     df = pd.read_csv(filepath)
     return dict(zip(df["index"], df["display_name"]))

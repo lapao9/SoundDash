@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, Response, current_app
 from flask_login import login_required
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 from io import StringIO
 import csv
@@ -13,7 +13,7 @@ from app.services.influx import (
     get_client, to_rfc3339, parse_interval_to_days, pode_usar_bucket_agregado
 )
 from app.services.acoustics import (
-    calcular_media_db, calcular_lden_db, fetch_valores_db
+    calcular_media_db, calcular_lden_db, fetch_valores_db, fetch_laeq_horario
 )
 from app.services.system_config import load_system_config, save_system_config
 
@@ -326,6 +326,72 @@ def download_csv():
         mimetype='text/csv',
         headers={'Content-Disposition': f'attachment;filename=SoundData_{start}_{end}.csv'}
     )
+
+
+@api_bp.route('/calendario')
+def get_calendario():
+    start_str = request.args.get('start')
+    end_str   = request.args.get('end')
+    sensor    = request.args.get('sensor_id')
+
+    if not all([start_str, end_str, sensor]):
+        return jsonify({'error': "Parâmetros obrigatórios: start, end, sensor_id"}), 400
+
+    try:
+        start_dt = datetime.fromisoformat(start_str)
+        end_dt   = datetime.fromisoformat(end_str).replace(hour=23, minute=59, second=59)
+    except ValueError:
+        return jsonify({'error': 'Formato de data inválido. Use YYYY-MM-DD'}), 400
+
+    hourly = fetch_laeq_horario(sensor, to_rfc3339(start_dt), to_rfc3339(end_dt))
+
+    by_day = defaultdict(list)
+    for item in hourly:
+        t = item['time']
+        day_str = t.strftime('%Y-%m-%d')
+        by_day[day_str].append({'hour': t.hour, 'value': item['value']})
+
+    result = []
+    current = start_dt.date()
+    end_date = end_dt.date()
+
+    while current <= end_date:
+        day_str = current.strftime('%Y-%m-%d')
+        hours   = by_day.get(day_str, [])
+
+        if hours:
+            all_vals  = [h['value'] for h in hours]
+            t1_vals   = [h['value'] for h in hours if 0  <= h['hour'] < 8]
+            t2_vals   = [h['value'] for h in hours if 8  <= h['hour'] < 16]
+            t3_vals   = [h['value'] for h in hours if 16 <= h['hour'] < 24]
+            lday_vals = [h['value'] for h in hours if 8  <= h['hour'] < 20]
+            leve_vals = [h['value'] for h in hours if 20 <= h['hour'] < 23]
+            lnit_vals = [h['value'] for h in hours if h['hour'] >= 23 or h['hour'] < 8]
+
+            laeq    = calcular_media_db(all_vals)
+            turno1  = calcular_media_db(t1_vals)
+            turno2  = calcular_media_db(t2_vals)
+            turno3  = calcular_media_db(t3_vals)
+            l_day   = calcular_media_db(lday_vals)
+            l_even  = calcular_media_db(leve_vals)
+            l_night = calcular_media_db(lnit_vals)
+            lden    = calcular_lden_db(l_day, l_even, l_night)
+
+            result.append({
+                'date':   day_str,
+                'laeq':   round(laeq,   1) if laeq   is not None else None,
+                'turno1': round(turno1, 1) if turno1 is not None else None,
+                'turno2': round(turno2, 1) if turno2 is not None else None,
+                'turno3': round(turno3, 1) if turno3 is not None else None,
+                'lden':   round(lden,   1) if lden   is not None else None,
+                'has_data': True
+            })
+        else:
+            result.append({'date': day_str, 'laeq': None, 'turno1': None,
+                           'turno2': None, 'turno3': None, 'lden': None, 'has_data': False})
+        current += timedelta(days=1)
+
+    return jsonify({'dias': result})
 
 
 @api_bp.route('/sensores')
