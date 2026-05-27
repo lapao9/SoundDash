@@ -38,18 +38,17 @@ def get_lden():
 
     d0  = start_dt.replace(hour=0,  minute=0,  second=0,  microsecond=0)
     d8  = start_dt.replace(hour=8,  minute=0,  second=0,  microsecond=0)
-    d20 = start_dt.replace(hour=20, minute=0,  second=0,  microsecond=0)
-    d23 = start_dt.replace(hour=23, minute=0,  second=0,  microsecond=0)
+    d16 = start_dt.replace(hour=16, minute=0,  second=0,  microsecond=0)
     d24 = start_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    valores_dia    = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d8),  to_rfc3339(d20))
-    valores_tarde  = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d20), to_rfc3339(d23))
-    valores_noite1 = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d0),  to_rfc3339(d8))
-    valores_noite2 = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d23), to_rfc3339(d24))
+    # Hospital shifts: T2=day(08-16), T3=evening(16-00+5dB), T1=night(00-08+10dB)
+    valores_dia   = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d8),  to_rfc3339(d16))
+    valores_tarde = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d16), to_rfc3339(d24))
+    valores_noite = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d0),  to_rfc3339(d8))
 
     Lday     = calcular_media_db(valores_dia)
     Levening = calcular_media_db(valores_tarde)
-    Lnight   = calcular_media_db(valores_noite1 + valores_noite2)
+    Lnight   = calcular_media_db(valores_noite)
 
     if None in (Lday, Levening, Lnight):
         return jsonify({'error': 'Sem dados suficientes'}), 404
@@ -365,9 +364,9 @@ def get_calendario():
             t1_vals   = [h['value'] for h in hours if 0  <= h['hour'] < 8]
             t2_vals   = [h['value'] for h in hours if 8  <= h['hour'] < 16]
             t3_vals   = [h['value'] for h in hours if 16 <= h['hour'] < 24]
-            lday_vals = [h['value'] for h in hours if 8  <= h['hour'] < 20]
-            leve_vals = [h['value'] for h in hours if 20 <= h['hour'] < 23]
-            lnit_vals = [h['value'] for h in hours if h['hour'] >= 23 or h['hour'] < 8]
+            lday_vals = [h['value'] for h in hours if 8  <= h['hour'] < 16]   # T2: 08-16
+            leve_vals = [h['value'] for h in hours if 16 <= h['hour'] < 24]   # T3: 16-00
+            lnit_vals = [h['value'] for h in hours if h['hour'] < 8]          # T1: 00-08
 
             laeq    = calcular_media_db(all_vals)
             turno1  = calcular_media_db(t1_vals)
