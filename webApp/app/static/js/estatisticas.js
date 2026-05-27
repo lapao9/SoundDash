@@ -10,12 +10,12 @@ function dbToColor(value) {
   const sat = 70 + ratio * 10;
   const lig = 38 - ratio * 6;
   return `hsl(${hue.toFixed(0)}, ${sat.toFixed(0)}%, ${lig.toFixed(0)}%)`;
-}
+} // Verde = 40dB, Vermelho = 70dB
 
 function formatWeekLabel(startDate, endDate) {
   const fmt = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
   return `${fmt(startDate)} – ${fmt(endDate)}`;
-}
+} 
 
 function renderCalendar(dias, param) {
   const body  = document.getElementById('calBody');
