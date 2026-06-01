@@ -5,6 +5,7 @@ const DIAS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 let vistaAtual      = 'mensal';
 let semanalCache    = null;
 let showEventos     = false;
+let graficoChart    = null;
 
 // ── Color helpers ──────────────────────────────────────────────────────────
 
@@ -95,16 +96,15 @@ function renderCalendar(dias, param) {
       if (info && info.has_data && info[param] !== null) {
         if (isTurno) {
           td.classList.add('turno-cell');
-          const colorVal = info[param];
-          td.style.backgroundColor = dbToColor(colorVal);
-          const labels = ['T1','T2','T3'];
+          td.style.backgroundColor = dbToColor(info[param]);
+          const labels = ['T1 (Ln)','T2 (Ld)','T3 (Le)'];
           const keys   = ['turno1','turno2','turno3'];
           td.innerHTML = '<div class="turno-cell-inner">' + keys.map((k, i) => {
             const v = info[k];
             const bold = k === param ? ' style="font-weight:900"' : '';
             return `<span class="turno-row"${bold}>${labels[i]} ${v !== null ? v.toFixed(1) : '—'}</span>`;
           }).join('') + '</div>';
-          td.title = `${dateStr} — T1: ${info.turno1??'—'} / T2: ${info.turno2??'—'} / T3: ${info.turno3??'—'} dB`;
+          td.title = `${dateStr} — T1/Ln: ${info.turno1??'—'} / T2/Ld: ${info.turno2??'—'} / T3/Le: ${info.turno3??'—'} dB`;
         } else {
           const val = info[param];
           td.textContent = val.toFixed(1);
@@ -124,6 +124,94 @@ function renderCalendar(dias, param) {
     body.appendChild(tr);
     current.setDate(current.getDate() + 7);
   }
+}
+
+function atualizarLden(dias) {
+  const box = document.getElementById('ldenBox');
+  const withData = dias.filter(d => d.has_data);
+  if (!withData.length) { box.classList.add('d-none'); return; }
+
+  function energyAvg(vals) {
+    if (!vals.length) return null;
+    const sum = vals.reduce((s, v) => s + Math.pow(10, v / 10), 0);
+    return 10 * Math.log10(sum / vals.length);
+  }
+
+  const ldVals  = withData.filter(d => d.turno2 !== null).map(d => d.turno2);
+  const leVals  = withData.filter(d => d.turno3 !== null).map(d => d.turno3);
+  const lnVals  = withData.filter(d => d.turno1 !== null).map(d => d.turno1);
+
+  const Ld = energyAvg(ldVals);
+  const Le = energyAvg(leVals);
+  const Ln = energyAvg(lnVals);
+
+  let Lden = null;
+  if (Ld !== null && Le !== null && Ln !== null) {
+    Lden = 10 * Math.log10(
+      (8 * Math.pow(10, Ld / 10) + 8 * Math.pow(10, (Le + 5) / 10) + 8 * Math.pow(10, (Ln + 10) / 10)) / 24
+    );
+  }
+
+  document.getElementById('ldenLd').textContent   = Ld   !== null ? Ld.toFixed(1)   + ' dB' : '—';
+  document.getElementById('ldenLe').textContent   = Le   !== null ? Le.toFixed(1)   + ' dB' : '—';
+  document.getElementById('ldenLn').textContent   = Ln   !== null ? Ln.toFixed(1)   + ' dB' : '—';
+  document.getElementById('ldenLden').textContent = Lden !== null ? Lden.toFixed(1) + ' dB' : '—';
+  box.classList.remove('d-none');
+}
+
+function renderGrafico(dias) {
+  const wrap = document.getElementById('graficoWrap');
+  const withData = dias.filter(d => d.has_data && d.laeq !== null);
+  if (!withData.length) { wrap.classList.add('d-none'); return; }
+  wrap.classList.remove('d-none');
+
+  const labels   = withData.map(d => d.date.slice(5).replace('-', '/'));
+  const laeqData = withData.map(d => d.laeq);
+  const lcData   = withData.map(d => d.lcpeak);
+
+  if (graficoChart) { graficoChart.destroy(); graficoChart = null; }
+
+  const ctx = document.getElementById('graficoCanvas').getContext('2d');
+  graficoChart = new Chart(ctx, {
+    data: {
+      labels,
+      datasets: [
+        {
+          type: 'bar',
+          label: 'LAeq (dB)',
+          data: laeqData,
+          backgroundColor: laeqData.map(v => dbToColor(v) || 'hsl(120,70%,35%)'),
+          borderRadius: 3,
+          yAxisID: 'y'
+        },
+        {
+          type: 'line',
+          label: 'LCpeak (dB)',
+          data: lcData,
+          borderColor: '#e74c3c',
+          backgroundColor: 'transparent',
+          pointRadius: 3,
+          tension: 0.3,
+          yAxisID: 'y'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) + ' dB' : '—'}`
+          }
+        }
+      },
+      scales: {
+        y: { title: { display: true, text: 'dB', font: { size: 11 } }, beginAtZero: false }
+      }
+    }
+  });
 }
 
 function atualizarResumo(dias, param) {
@@ -169,6 +257,8 @@ async function atualizarCalendario() {
 
     renderCalendar(data.dias, param);
     atualizarResumo(data.dias, param);
+    atualizarLden(data.dias);
+    renderGrafico(data.dias);
   } catch (err) {
     console.error('Erro ao carregar calendário:', err);
   } finally {

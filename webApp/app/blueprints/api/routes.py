@@ -343,39 +343,42 @@ def get_calendario():
     except ValueError:
         return jsonify({'error': 'Formato de data inválido. Use YYYY-MM-DD'}), 400
 
-    hourly = fetch_laeq_horario(sensor, to_rfc3339(start_dt), to_rfc3339(end_dt))
+    raw = fetch_hourly_campos(sensor, to_rfc3339(start_dt), to_rfc3339(end_dt),
+                              ['LAEA', 'LCpeak', 'LAFmax', 'LAFmin'])
 
-    by_day = defaultdict(list)
-    for item in hourly:
+    by_day = defaultdict(lambda: defaultdict(list))
+    for item in raw:
         t = item['time']
-        day_str = t.strftime('%Y-%m-%d')
-        by_day[day_str].append({'hour': t.hour, 'value': item['value']})
+        by_day[t.strftime('%Y-%m-%d')][item['field']].append({'hour': t.hour, 'value': item['value']})
 
     result = []
     current = start_dt.date()
     end_date = end_dt.date()
 
     while current <= end_date:
-        day_str = current.strftime('%Y-%m-%d')
-        hours   = by_day.get(day_str, [])
+        day_str    = current.strftime('%Y-%m-%d')
+        fields_day = by_day.get(day_str, {})
+        laea_hours = fields_day.get('LAEA', [])
 
-        if hours:
-            all_vals  = [h['value'] for h in hours]
-            t1_vals   = [h['value'] for h in hours if 0  <= h['hour'] < 8]
-            t2_vals   = [h['value'] for h in hours if 8  <= h['hour'] < 16]
-            t3_vals   = [h['value'] for h in hours if 16 <= h['hour'] < 24]
-            lday_vals = [h['value'] for h in hours if 8  <= h['hour'] < 16]   # T2: 08-16
-            leve_vals = [h['value'] for h in hours if 16 <= h['hour'] < 24]   # T3: 16-00
-            lnit_vals = [h['value'] for h in hours if h['hour'] < 8]          # T1: 00-08
+        if laea_hours:
+            all_vals = [h['value'] for h in laea_hours]
+            t1_vals  = [h['value'] for h in laea_hours if h['hour'] < 8]
+            t2_vals  = [h['value'] for h in laea_hours if 8  <= h['hour'] < 16]
+            t3_vals  = [h['value'] for h in laea_hours if 16 <= h['hour'] < 24]
 
-            laeq    = calcular_media_db(all_vals)
-            turno1  = calcular_media_db(t1_vals)
-            turno2  = calcular_media_db(t2_vals)
-            turno3  = calcular_media_db(t3_vals)
-            l_day   = calcular_media_db(lday_vals)
-            l_even  = calcular_media_db(leve_vals)
-            l_night = calcular_media_db(lnit_vals)
-            lden    = calcular_lden_db(l_day, l_even, l_night)
+            laeq   = calcular_media_db(all_vals)
+            turno1 = calcular_media_db(t1_vals)
+            turno2 = calcular_media_db(t2_vals)
+            turno3 = calcular_media_db(t3_vals)
+            lden   = calcular_lden_db(turno2, turno3, turno1)
+
+            lcpeak_vals = [h['value'] for h in fields_day.get('LCpeak', [])]
+            lafmax_vals = [h['value'] for h in fields_day.get('LAFmax', [])]
+            lafmin_vals = [h['value'] for h in fields_day.get('LAFmin', [])]
+
+            lcpeak = max(lcpeak_vals) if lcpeak_vals else None
+            lmax   = max(lafmax_vals) if lafmax_vals else None
+            lmin   = min(lafmin_vals) if lafmin_vals else None
 
             result.append({
                 'date':   day_str,
@@ -384,11 +387,15 @@ def get_calendario():
                 'turno2': round(turno2, 1) if turno2 is not None else None,
                 'turno3': round(turno3, 1) if turno3 is not None else None,
                 'lden':   round(lden,   1) if lden   is not None else None,
+                'lcpeak': round(lcpeak, 1) if lcpeak is not None else None,
+                'lmax':   round(lmax,   1) if lmax   is not None else None,
+                'lmin':   round(lmin,   1) if lmin   is not None else None,
                 'has_data': True
             })
         else:
-            result.append({'date': day_str, 'laeq': None, 'turno1': None,
-                           'turno2': None, 'turno3': None, 'lden': None, 'has_data': False})
+            result.append({'date': day_str, 'laeq': None, 'turno1': None, 'turno2': None,
+                           'turno3': None, 'lden': None, 'lcpeak': None, 'lmax': None,
+                           'lmin': None, 'has_data': False})
         current += timedelta(days=1)
 
     return jsonify({'dias': result})

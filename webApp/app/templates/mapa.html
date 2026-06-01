@@ -11,13 +11,21 @@
 
 {% block content %}
 <main class="container my-5">
+  <div class="row g-4 mb-3">
+    <div class="col-md-4">
+      <label class="form-label fw-semibold">Sensor</label>
+      <select class="form-control" id="mapaSelectSensor">
+        <option disabled selected>A carregar...</option>
+      </select>
+    </div>
+  </div>
   <div class="row g-4">
     <div class="col-md-6">
       <img src="{{ url_for('static', filename='images/hospMapv1.png') }}" alt="Mapa do Hospital" class="map-image" />
     </div>
     <div class="col-md-6">
-      <div id="sensoresLista">
-        <p class="text-muted">A carregar sensores...</p>
+      <div id="mapaIframeWrap" style="height:400px;">
+        <p class="text-muted">Seleciona um sensor para ver os dados em tempo real.</p>
       </div>
     </div>
   </div>

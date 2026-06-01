@@ -5,6 +5,7 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/estatisticas.css') }}" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -37,10 +38,13 @@
           <h5 class="mb-2">Parâmetro</h5>
           <select class="form-control mb-3" id="paramSelect">
             <option value="laeq">LAeq diário</option>
-            <option value="turno1">Turno 1 — 00:00–08:00h</option>
-            <option value="turno2">Turno 2 — 08:00–16:00h</option>
-            <option value="turno3">Turno 3 — 16:00–00:00h</option>
+            <option value="turno1">Turno 1 (Ln) — 00:00–08:00h</option>
+            <option value="turno2">Turno 2 (Ld) — 08:00–16:00h</option>
+            <option value="turno3">Turno 3 (Le) — 16:00–00:00h</option>
             <option value="lden">Lden</option>
+            <option value="lcpeak">LCpeak (máx. diário)</option>
+            <option value="lmax">LAFmax (máx. diário)</option>
+            <option value="lmin">LAFmin (mín. diário)</option>
           </select>
           <button class="btn btn-primary w-100" onclick="atualizarCalendario()">Atualizar</button>
         </div>
@@ -87,6 +91,25 @@
           </ul>
         </div>
 
+        <!-- Tabela Lden / Ld / Le / Ln -->
+        <div id="ldenBox" class="mt-4 d-none">
+          <h6>Períodos Acústicos</h6>
+          <ul class="list-group list-group-flush small">
+            <li class="list-group-item d-flex justify-content-between">
+              <span>Ld — Dia (08–16h)</span><strong id="ldenLd">—</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <span>Le — Entardecer (16–00h)</span><strong id="ldenLe">—</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between">
+              <span>Ln — Noite (00–08h)</span><strong id="ldenLn">—</strong>
+            </li>
+            <li class="list-group-item d-flex justify-content-between bg-light">
+              <span><strong>Lden</strong></span><strong id="ldenLden" class="text-primary">—</strong>
+            </li>
+          </ul>
+        </div>
+
       </div>
     </div>
 
@@ -113,6 +136,12 @@
           </table>
         </div>
         <p id="emptyMsg" class="text-center text-muted mt-4 d-none">Sem dados para o período selecionado.</p>
+
+        <!-- Gráfico LAeq + LCpeak por dia -->
+        <div id="graficoWrap" class="mt-4 d-none">
+          <h6 class="text-muted text-uppercase" style="font-size:.78rem;letter-spacing:.05em;">Gráfico — LAeq e LCpeak por Dia</h6>
+          <canvas id="graficoCanvas" height="100"></canvas>
+        </div>
       </div>
 
       <!-- Vista Semanal -->
