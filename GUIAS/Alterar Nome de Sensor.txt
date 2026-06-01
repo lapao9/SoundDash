@@ -1,0 +1,22 @@
+############## Passo 1 — Migrar os dados no InfluxDB (na tua máquina, tens acesso à rede)
+
+cd Influx_Scripts
+python rename_sensor.py Sensor2 Sensor100
+Aguarda a confirmação. Só avança quando o script disser que as contagens batem certo.
+
+############## Passo 2 — Alterar o nome na Pi
+Alterar sensor_id no json
+
+############## Passo 3 — Apagar o measurement antigo
+Depois de confirmar que os novos dados estão 
+a chegar como Sensor100, apagar o antigo pela UI do InfluxDB:
+
+http://10.64.137.6:8086 → Data → Buckets → SoundDashHosp → Delete Data
+→ _measurement = Sensor2 → Delete
+
+Ou pelo CLI no servidor:
+
+influx delete --bucket SoundDashHosp --org ISEL \
+  --predicate '_measurement="Sensor2"' \
+  --start 1970-01-01T00:00:00Z \
+  --stop 2099-01-01T00:00:00Z
