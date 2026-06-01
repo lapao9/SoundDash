@@ -1,0 +1,93 @@
+{
+  "station": {
+    "sensor_ID": 2,
+    "local_Info": "CampoGrandeLx",
+    "local_Lat": 38.75,
+    "local_Long": -9.14613,
+    "local_Alt": 12,
+    "Tipo": "SmartSoundStation",
+    "Tipo2": "SoundMeterSemaf",
+    "tipo": ""
+  },
+  "audio": {
+    "sample_rate": 48000,
+    "channels": 1,
+    "dtype": "int16",
+    "chunk_size": 2048,
+    "nbits": 16,
+    "dif_out_in_db": 6.7,
+    "target_device_name": "usb"
+  },
+  "timing": {
+    "file_duration": 1800,
+    "session_duration": null,
+    "segment_duration": 0.25,
+    "percentil_duration_laxx": 900,
+    "time_csv_store": 640,
+    "file_duration_csv": 3600
+  },
+  "audio_save": {
+    "file_prefix": "chunk",
+    "bitrate": 128
+  },
+  "levels": {
+    "cal94": 94,
+    "pref": 2e-05,
+    "n_13octave_bands": 30
+  },
+  "noise_reduction": {
+    "reduction_factor": 0.8,
+    "initial_noise_frames": 60
+  },
+  "percentil_noise": {
+    "percentil_value": 35,
+    "threshold_event_offset": 10,
+    "percentil_LAxx": 40
+  },
+  "output": {
+    "path": "/Users/joelpaulo/Documents/ISEL/Projects2024_2025/ProjetosEscolhidos/StereoMic/",
+    "dir_csv": "outputDIR_CSV",
+    "dir_waves": "outputDIR_Waves"
+  },
+  "leds_display": {
+    "level_led_green": 50,
+    "level_led_green_yellow": 63,
+    "level_led_yellow": 60,
+    "level_led_yellow_red": 83,
+    "gpio_green": 23,
+    "gpio_yellow": 24,
+    "gpio_red": 25
+  },
+  "mqtt": {
+    "broker": "10.64.137.6",
+    "broker2": "ISEL-LAA.isel.priv",
+    "broker3": "10.63.13.39",
+    "port": 1884,
+    "topic": "sound/levels"
+  },
+  "config_flags": {
+    "plots_ok": false,
+    "save_audiofile_ok": false,
+    "noise_timeline_ok": false,
+    "echo_short_ok": false,
+    "echo_complete_ok": false,
+    "show_leds_display_ok": false,
+    "noise_reduction_ok": true,
+    "publica_mqtt_ok": true,
+    "plat_mac": false,
+    "sound_classification_ok": true
+  },
+  "sound_event_detect": {
+    "model_path": "/home/laa/.cache/kagglehub/models/google/yamnet/tensorFlow2/yamnet/1",
+    "classes": "class_labels_indices.csv",
+    "family_map2": "audioset_familias.csv",
+    "weight_map2": "audioset_familias_pesos.csv",
+    "family_map": "aircraft_map.csv",
+    "weight_map": "aircraft_weight.csv",
+    "blacklist": [
+      "Silence"
+    ],
+    "size_event": 1.5,
+    "reduce_Eventmusic": 0.2
+  }
+}
