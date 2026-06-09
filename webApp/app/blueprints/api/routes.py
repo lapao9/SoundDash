@@ -36,36 +36,51 @@ def get_lden():
     except Exception:
         return jsonify({'error': 'Formato de data inválido'}), 400
 
-    # Official Lden periods (EU Directive 2002/49/EC)
     d_start = start_dt.replace(hour=0,  minute=0,  second=0,  microsecond=0)
     d7      = start_dt.replace(hour=7,  minute=0,  second=0,  microsecond=0)
+    d8      = start_dt.replace(hour=8,  minute=0,  second=0,  microsecond=0)
+    d16     = start_dt.replace(hour=16, minute=0,  second=0,  microsecond=0)
     d19     = start_dt.replace(hour=19, minute=0,  second=0,  microsecond=0)
     d23     = start_dt.replace(hour=23, minute=0,  second=0,  microsecond=0)
     d_end   = start_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    # Ld=07-19h, Le=19-23h, Ln=23-07h (split as 00-07 + 23-24 of same day)
-    valores_dia   = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d7),      to_rfc3339(d19))
-    valores_tarde = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d19),     to_rfc3339(d23))
-    valores_noite = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d_start), to_rfc3339(d7)) + \
-                    fetch_valores_db(sensor, 'LAEA', to_rfc3339(d23),     to_rfc3339(d_end))
+    # Hospital shifts: T1=00-08h, T2=08-16h, T3=16-00h
+    v_t1 = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d_start), to_rfc3339(d8))
+    v_t2 = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d8),      to_rfc3339(d16))
+    v_t3 = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d16),     to_rfc3339(d_end))
 
-    Lday     = calcular_media_db(valores_dia)
-    Levening = calcular_media_db(valores_tarde)
-    Lnight   = calcular_media_db(valores_noite)
+    # Official Lden periods (EU 2002/49/EC): Ld=07-19h, Le=19-23h, Ln=23-07h
+    v_ld = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d7),      to_rfc3339(d19))
+    v_le = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d19),     to_rfc3339(d23))
+    v_ln = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d_start), to_rfc3339(d7)) + \
+           fetch_valores_db(sensor, 'LAEA', to_rfc3339(d23),     to_rfc3339(d_end))
 
-    if None in (Lday, Levening, Lnight):
+    Lturno1 = calcular_media_db(v_t1)
+    Lturno2 = calcular_media_db(v_t2)
+    Lturno3 = calcular_media_db(v_t3)
+    Ld      = calcular_media_db(v_ld)
+    Le      = calcular_media_db(v_le)
+    Ln      = calcular_media_db(v_ln)
+
+    if None in (Ld, Le, Ln):
         return jsonify({'error': 'Sem dados suficientes'}), 404
 
-    Lden = calcular_lden_db(Lday, Levening, Lnight)
+    Lden = calcular_lden_db(Ld, Le, Ln)
+
+    def r(v): return round(v, 2) if v is not None else None
+
     return jsonify({
-        'ld':   round(Lday,     2),
-        'le':   round(Levening, 2),
-        'ln':   round(Lnight,   2),
-        'lden': round(Lden,     2),
-        # aliases for backwards compat
-        'laeq_day':     round(Lday,     2),
-        'laeq_evening': round(Levening, 2),
-        'laeq_night':   round(Lnight,   2),
+        'turno1': r(Lturno1),
+        'turno2': r(Lturno2),
+        'turno3': r(Lturno3),
+        'ld':     r(Ld),
+        'le':     r(Le),
+        'ln':     r(Ln),
+        'lden':   r(Lden),
+        # aliases kept for backwards compat with any existing callers
+        'laeq_day':     r(Ld),
+        'laeq_evening': r(Le),
+        'laeq_night':   r(Ln),
     })
 
 

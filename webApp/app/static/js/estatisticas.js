@@ -128,6 +128,27 @@ function renderCalendar(dias, param) {
   }
 }
 
+function atualizarTurnos(dias) {
+  const box = document.getElementById('turnosBox');
+  const withData = dias.filter(d => d.has_data);
+  if (!withData.length) { box.classList.add('d-none'); return; }
+
+  function energyAvg(vals) {
+    if (!vals.length) return null;
+    return 10 * Math.log10(vals.reduce((s, v) => s + Math.pow(10, v / 10), 0) / vals.length);
+  }
+
+  const t1 = energyAvg(withData.filter(d => d.turno1 !== null).map(d => d.turno1));
+  const t2 = energyAvg(withData.filter(d => d.turno2 !== null).map(d => d.turno2));
+  const t3 = energyAvg(withData.filter(d => d.turno3 !== null).map(d => d.turno3));
+
+  const fmt = v => v !== null ? v.toFixed(1) + ' dB' : '—';
+  document.getElementById('turnoT1').textContent = fmt(t1);
+  document.getElementById('turnoT2').textContent = fmt(t2);
+  document.getElementById('turnoT3').textContent = fmt(t3);
+  box.classList.remove('d-none');
+}
+
 function atualizarLden(dias) {
   const box = document.getElementById('ldenBox');
   const withData = dias.filter(d => d.has_data);
@@ -291,6 +312,7 @@ async function atualizarCalendario() {
 
     renderCalendar(data.dias, param);
     atualizarResumo(data.dias, param);
+    atualizarTurnos(data.dias);
     atualizarLden(data.dias);
     renderGrafico(data.dias);
   } catch (err) {

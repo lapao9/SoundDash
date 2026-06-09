@@ -26,27 +26,21 @@ async function calcularLden() {
 
   fetch(`/api/lden?start=${startDate.toISOString()}&end=${finishDate.toISOString()}&sensor_id=${sensor}`)
     .then(resp => resp.json())
-    .then(ldens => {
-      const Lday = ldens.laeq_day;
-      const Levening = ldens.laeq_evening;
-      const Lnight = ldens.laeq_night;
-
-      document.getElementById('laeqDay').textContent     = Lday     ? Lday.toFixed(1)     + ' dB' : '- dB';
-      document.getElementById('laeqEvening').textContent = Levening ? Levening.toFixed(1) + ' dB' : '- dB';
-      document.getElementById('laeqNight').textContent   = Lnight   ? Lnight.toFixed(1)   + ' dB' : '- dB';
-
-      if (Lday && Levening && Lnight) {
-        const Lden = 10 * Math.log10(
-          (1 / 24) * (
-            12 * Math.pow(10, Lday / 10) +
-             4 * Math.pow(10, (Levening + 5) / 10) +
-             8 * Math.pow(10, (Lnight + 10) / 10)
-          )
-        );
-        document.getElementById('lden').textContent = Lden.toFixed(1) + ' dB';
-      } else {
-        document.getElementById('lden').textContent = '- dB';
-      }
+    .then(d => {
+      const fmt = v => v !== null && v !== undefined ? v.toFixed(1) + ' dB' : '—';
+      // Turnos hospitalares
+      document.getElementById('laeqNight').textContent   = fmt(d.turno1);
+      document.getElementById('laeqDay').textContent     = fmt(d.turno2);
+      document.getElementById('laeqEvening').textContent = fmt(d.turno3);
+      // Períodos Lden (legislação)
+      document.getElementById('tempoLd').textContent = fmt(d.ld);
+      document.getElementById('tempoLe').textContent = fmt(d.le);
+      document.getElementById('tempoLn').textContent = fmt(d.ln);
+      document.getElementById('lden').textContent    = fmt(d.lden);
+    })
+    .catch(() => {
+      ['laeqNight','laeqDay','laeqEvening','tempoLd','tempoLe','tempoLn','lden']
+        .forEach(id => { document.getElementById(id).textContent = '—'; });
     });
 }
 

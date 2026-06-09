@@ -43,19 +43,31 @@
         <button class="btn btn-outline-secondary w-100 mt-2" onclick="downloadCSV()">Descarregar CSV</button>
 
         <div id="statsBox" class="mt-4 bg-light p-3 rounded shadow-sm d-none">
-          <h6>Estatísticas do Intervalo Selecionado</h6>
-          <ul class="list-group list-group-flush">
-            <li class="list-group-item">LAeq: <span id="laeq">- dB</span></li>
-            <li class="list-group-item">Lcpeak: <span id="lcpeak">- dB</span></li>
-            <li class="list-group-item">LAFmax: <span id="lafmax">- dB</span></li>
-            <li class="list-group-item">LAFmin: <span id="lafmin">- dB</span></li>
-            <li class="list-group-item">LA50: <span id="la50">- dB</span></li>
-            <li class="list-group-item">LA90: <span id="la95">- dB</span></li>
-            <li class="list-group-item fw-bold mt-2">Cálculo Lden ( <span id="diaAnterior"></span>)</li>
-            <li class="list-group-item">Turno 1 (00:00-8:00h): <span id="laeqNight">- dB</span></li>
-            <li class="list-group-item">Turno 2 (8:00-16:00h): <span id="laeqDay">- dB</span></li>
-            <li class="list-group-item">Turno 3 (16:00-00:00h): <span id="laeqEvening">- dB</span></li>
-            <li class="list-group-item">Lden: <span id="lden">- dB</span></li>
+          <h6>Estatísticas do Intervalo</h6>
+          <ul class="list-group list-group-flush small">
+            <li class="list-group-item d-flex justify-content-between">LAeq <span id="laeq">—</span></li>
+            <li class="list-group-item d-flex justify-content-between">LCpeak <span id="lcpeak">—</span></li>
+            <li class="list-group-item d-flex justify-content-between">LAFmax <span id="lafmax">—</span></li>
+            <li class="list-group-item d-flex justify-content-between">LAFmin <span id="lafmin">—</span></li>
+            <li class="list-group-item d-flex justify-content-between">LA50 <span id="la50">—</span></li>
+            <li class="list-group-item d-flex justify-content-between">LA90 <span id="la95">—</span></li>
+          </ul>
+
+          <h6 class="mt-3 mb-1">Turnos Hospitalares <small class="text-muted fw-normal">(<span id="diaAnterior"></span>)</small></h6>
+          <ul class="list-group list-group-flush small">
+            <li class="list-group-item d-flex justify-content-between">Turno 1 (00:00–08:00h) <span id="laeqNight">—</span></li>
+            <li class="list-group-item d-flex justify-content-between">Turno 2 (08:00–16:00h) <span id="laeqDay">—</span></li>
+            <li class="list-group-item d-flex justify-content-between">Turno 3 (16:00–00:00h) <span id="laeqEvening">—</span></li>
+          </ul>
+
+          <h6 class="mt-3 mb-1">Lden <small class="text-muted fw-normal">(legislação)</small></h6>
+          <ul class="list-group list-group-flush small">
+            <li class="list-group-item d-flex justify-content-between">Ld — Dia (07:00–19:00h) <span id="tempoLd">—</span></li>
+            <li class="list-group-item d-flex justify-content-between">Le — Entardecer (19:00–23:00h) <span id="tempoLe">—</span></li>
+            <li class="list-group-item d-flex justify-content-between">Ln — Noite (23:00–07:00h) <span id="tempoLn">—</span></li>
+            <li class="list-group-item d-flex justify-content-between bg-light">
+              <strong>Lden</strong> <strong id="lden" class="text-primary">—</strong>
+            </li>
           </ul>
         </div>
       </div>
