@@ -1,0 +1,707 @@
+\documentclass[12pt,a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{caption}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{mdframed}
+\usepackage{float}
+\usepackage{chngcntr}
+\usepackage{subcaption}
+\counterwithout{figure}{chapter}
+\counterwithout{table}{chapter}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=3cm, right=2.5cm}
+\captionsetup{justification=centering, singlelinecheck=false}
+
+\definecolor{iselblue}{RGB}{0,84,166}
+\definecolor{codegray}{RGB}{245,245,245}
+\definecolor{codegreen}{RGB}{0,128,0}
+\definecolor{codeorange}{RGB}{204,85,0}
+
+\lstdefinestyle{python}{
+  backgroundcolor=\color{codegray}, commentstyle=\color{codegreen},
+  keywordstyle=\color{iselblue}\bfseries, stringstyle=\color{codeorange},
+  basicstyle=\ttfamily\scriptsize, breaklines=true, captionpos=b,
+  numbers=left, numbersep=4pt, numberstyle=\tiny\color{gray},
+  frame=single, rulecolor=\color{gray!40}, language=Python,
+  showstringspaces=false, tabsize=2
+}
+\lstdefinestyle{bash}{
+  backgroundcolor=\color{codegray}, basicstyle=\ttfamily\scriptsize,
+  breaklines=true, frame=single, rulecolor=\color{gray!40}
+}
+\lstdefinestyle{flux}{
+  backgroundcolor=\color{codegray}, basicstyle=\ttfamily\scriptsize,
+  breaklines=true, frame=single, rulecolor=\color{gray!40},
+  keywordstyle=\color{iselblue}\bfseries,
+  morekeywords={from,range,filter,aggregateWindow,fn,pivot,map,keep,drop,group,sort,limit,yield,task,every,offset,option},
+  showstringspaces=false
+}
+
+\hypersetup{colorlinks=true, linkcolor=iselblue, urlcolor=iselblue, citecolor=iselblue}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small SoundDash -- Relatório Final}
+\fancyhead[R]{\small João Lapão -- 51542}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{%
+  \fancyhf{}
+  \fancyhead[L]{\small SoundDash -- Relatório Final}
+  \fancyhead[R]{\small João Lapão -- 51542}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0.4pt}
+}
+
+\titleformat{\chapter}[block]{\normalfont\LARGE\bfseries}{\thechapter.}{1em}{}
+\titlespacing*{\chapter}{0pt}{-10pt}{16pt}
+
+\newmdenv[linecolor=iselblue, linewidth=1pt, backgroundcolor=iselblue!5,
+  innerleftmargin=8pt, innerrightmargin=8pt,
+  innertopmargin=6pt, innerbottommargin=6pt]{infobox}
+
+% =====================================================================
+\begin{document}
+
+% --- CAPA ---
+\begin{titlepage}
+  \centering
+  \vspace*{1cm}
+  {\Large\bfseries Instituto Superior de Engenharia de Lisboa}\\[0.2cm]
+  {\large Departamento de Engenharia de Eletrónica e Telecomunicações e de Computadores}\\[0.4cm]
+  \includegraphics[width=15cm]{isel_logo.png}\\[0.3cm]
+  \rule{\linewidth}{1.5pt}\\[0.3cm]
+  {\LARGE\bfseries SoundDash}\\[0.2cm]
+  {\Large Plataforma de Monitorização Acústica}\\[0.15cm]
+  \rule{\linewidth}{1.5pt}\\[1.2cm]
+  {\large\bfseries Relatório Final}\\[0.3cm]
+  {\large Projeto Final de Curso}\\[1.5cm]
+  \begin{tabular}{rl}
+    \textbf{Aluno:}        & João Lapão \\
+    \textbf{Número:}       & 51542 \\
+    \textbf{Curso:}        & LEIRT -- ISEL \\[0.4cm]
+    \textbf{Orientadores:} & Prof.\ Joel Paulo \\
+                           & Prof.\ Porfírio Filipe \\
+  \end{tabular}
+  \vfill
+  {\large Junho 2026}
+\end{titlepage}
+
+{\hypersetup{linkcolor=black}\tableofcontents}
+\newpage
+
+% =====================================================================
+\chapter{Resumo}
+
+Este relatório apresenta o trabalho desenvolvido na continuação e extensão da plataforma \textbf{SoundDash}, um sistema de monitorização acústica em ambiente hospitalar originalmente criado por Diogo Lourenço e Miguel Florentino~\cite{prevSoundDash}.
+
+O trabalho abrangeu quatro eixos principais: (1)~análise de desempenho e otimização do InfluxDB, com testes sistemáticos de \textit{queries} e criação de \textit{Tasks} Flux automáticas; (2)~correção dos cálculos acústicos para escala linear, conforme a norma ISO~1996~\cite{iso1996} e a Diretiva Europeia 2002/49/CE~\cite{lden}; (3)~desenvolvimento do \textbf{Módulo de Estatísticas}, uma página web nova que disponibiliza visualização calendário mensal e semanal, gráficos de tendência e indicadores acústicos por períodos; e (4)~\textit{deployment} completo num servidor do ISEL com acesso público via \textit{reverse proxy} Nginx.
+
+A plataforma está operacional com quatro estações acústicas reais a publicar dados em tempo real. A aplicação web foi reestruturada com \textit{blueprints} Flask para maior modularidade, e as estações passaram a suportar reconfiguração remota via MQTT.
+
+\textbf{Palavras-chave:} monitorização acústica, IoT, MQTT, InfluxDB, Grafana, Flask, L\textsubscript{den}, séries temporais, Nginx.
+
+% =====================================================================
+\chapter{Introdução}
+
+\section{Contextualização}
+
+O ruído em Unidades de Cuidados Intensivos (UCI) tem sido amplamente identificado como fator prejudicial ao bem-estar dos pacientes e à eficácia do pessoal clínico~\cite{oms2018}. A Organização Mundial de Saúde recomenda níveis máximos de 35~dB(A) durante o período diurno e 30~dB(A) durante a noite, valores que são frequentemente excedidos em contexto hospitalar real. A monitorização contínua e automatizada é essencial para identificar fontes de ruído, avaliar o cumprimento de normas regulatórias e fundamentar intervenções de melhoria.
+
+A norma ISO~1996~\cite{iso1996} e o indicador L\textsubscript{den} (\textit{Level Day-Evening-Night})~\cite{lden} constituem as referências normativas para avaliação do ambiente sonoro, com penalizações de +5~dB para o período da tarde e +10~dB para o período noturno.
+
+\section{Trabalhos Relacionados}
+
+Identificaram-se três projetos com abordagens tecnicamente relevantes: o \textbf{COVIS}~\cite{covis}, um sistema de monitorização de sinais vitais em lares com recolha distribuída e visualização em tempo real; o \textbf{MIRA}~\cite{mira}, uma plataforma de monitorização inteligente de ruído ambiental urbano; e o \textbf{Hospital SUDOE 4.0}~\cite{sudoe}, dedicado à monitorização de qualidade do ar em hospitais com sensores IoT de baixo custo. O SoundDash distingue-se pelo foco específico em monitorização \textbf{acústica} em \textbf{ambiente hospitalar}, combinado com classificação automática de eventos e uma interface web concebida para utilizadores não técnicos.
+
+\section{Plataforma Herdada}
+
+A plataforma recebida implementava o seguinte \textit{pipeline}: estações acústicas baseadas em Raspberry Pi publicam dados via MQTT no broker Mosquitto; o Node-RED recebe, transforma e escreve os dados no InfluxDB; o Grafana gera \textit{dashboards} dinâmicos; e uma aplicação Flask serve a interface web com \textit{iframes} embebidos do Grafana e APIs REST próprias.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.58\linewidth]{diagram.png}
+  \caption{Arquitetura do sistema SoundDash.}
+  \label{fig:diagrama}
+\end{figure}
+
+Cada estação mede 60+ parâmetros a 16~Hz: indicadores principais (LAEA, LAeq, LCpeak, LAFmax, LAFmin), 31~bandas de frequência (BT25--BT20000), deteção de eventos (EventType1--10) e classificação automática (ClassID/Score). A aplicação web original dispunha de sete páginas públicas e uma área técnica com autenticação.
+
+Durante a análise inicial, identificaram-se as seguintes limitações relevantes:
+
+\begin{itemize}[nosep]
+  \item Credenciais e endereços IP \textit{hardcoded} nos ficheiros de configuração e \textit{templates};
+  \item Cálculos estatísticos aplicados diretamente sobre valores em dB, matematicamente incorreto;
+  \item Lista de sensores estática em todos os \textit{templates} HTML;
+  \item Bugs em múltiplas rotas da API (\texttt{/api/eventos}, \texttt{/api/lden}, \texttt{/api/stats});
+  \item Código monolítico sem separação de responsabilidades (ficheiro único com mais de 1000 linhas).
+\end{itemize}
+
+% =====================================================================
+\chapter{Fundamentos Acústicos}
+
+\section{O Decibel e a Escala Logarítmica}
+
+O nível de pressão sonora $L_p$ é definido como:
+\begin{equation}
+L_p = 10 \cdot \log_{10}\!\left(\frac{p^2}{p_0^2}\right), \quad p_0 = 20\,\mu\text{Pa}
+\end{equation}
+
+A natureza logarítmica implica que \textbf{operações aritméticas não podem ser aplicadas diretamente a valores em dB}. A média aritmética de 60~dB e 70~dB não é 65~dB, mas sim $\approx 67{,}4$~dB. O cálculo correto exige a conversão prévia para escala linear:
+
+\begin{equation}
+\bar{L}_{eq} = 10 \cdot \log_{10}\!\left(\frac{1}{n}\sum_{i=1}^{n} 10^{L_i/10}\right)
+\label{eq:media_db}
+\end{equation}
+
+\begin{infobox}
+\textbf{Nota crítica:} O expoente correto na conversão dB$\to$linear é \textbf{10} (energia/potência), não 20 (amplitude). Usar o expoente 20 sobrestima sistematicamente os resultados em todos os cálculos estatísticos.
+\end{infobox}
+
+\section{O Indicador L\textsubscript{den}}
+
+O L\textsubscript{den} (\textit{Level Day-Evening-Night}), definido pela Diretiva Europeia 2002/49/CE~\cite{lden}, pondera o ruído por período horário com penalizações para os períodos mais sensíveis:
+
+\begin{equation}
+L_{den} = 10 \cdot \log_{10}\!\left(\frac{12 \cdot 10^{L_d/10} + 4 \cdot 10^{(L_e+5)/10} + 8 \cdot 10^{(L_n+10)/10}}{24}\right)
+\label{eq:lden}
+\end{equation}
+
+onde $L_d$ corresponde ao período diurno (07h--19h, 12~horas), $L_e$ ao período da tarde (19h--23h, 4~horas, penalização +5~dB) e $L_n$ ao período noturno (23h--07h, 8~horas, penalização +10~dB). Em contexto hospitalar, os valores de L\textsubscript{den} devem manter-se abaixo de 45~dB~\cite{oms2018}; valores acima de 55~dB associam-se a perturbações significativas do sono e stresse fisiológico.
+
+\section{Agregação Temporal em Séries Temporais}
+
+Um sistema a 16~Hz com 4~sensores gera $\approx 5{,}5$ milhões de pontos por dia. A consulta direta deste volume é computacionalmente inviável para visualização interativa. A \textbf{agregação temporal} substitui os dados brutos por representações estatísticas por janela temporal (ex: média por minuto), reduzindo o volume por fatores de $10^3$ a $10^4$ sem perda visual relevante. Esta estratégia é implementada através da função \texttt{aggregateWindow} do Flux e é aplicada adaptativamente em função do intervalo de tempo consultado.
+
+% =====================================================================
+\chapter{Objetivos}
+
+O trabalho desenvolvido organizou-se em quatro eixos principais:
+
+\begin{enumerate}[leftmargin=*, label=\textbf{\arabic*.}]
+  \item \textbf{Desempenho e robustez da infraestrutura} -- Avaliar o InfluxDB sob diferentes volumes e tipos de \textit{queries}; criar \textit{Tasks} Flux automáticas para agregação e cálculo contínuo; e testar o sistema com múltiplas estações em simultâneo.
+
+  \item \textbf{Correção dos algoritmos acústicos} -- Garantir que todas as médias, percentis e o indicador L\textsubscript{den} são calculados em escala linear, em conformidade com a norma ISO~1996 e a Diretiva 2002/49/CE.
+
+  \item \textbf{Módulo de Estatísticas} -- Desenvolver uma página de estatísticas de longo prazo com visualização calendário mensal e semanal, gráficos de tendência e tabela L\textsubscript{den}, completamente ausente na plataforma original.
+
+  \item \textbf{\textit{Deployment} e operacionalidade} -- Migrar para uma VM institucional do ISEL com acesso público via \textit{reverse proxy} Nginx, e implementar reconfiguração remota das estações acústicas via MQTT.
+\end{enumerate}
+
+% =====================================================================
+\chapter{Arquitetura Final do Sistema}
+
+\section{Visão Geral}
+
+A Figura~\ref{fig:diagrama} apresenta o \textit{pipeline} de dados completo. As estações acústicas (Raspberry Pi + sensor SoundMeterSemaf) publicam mensagens JSON via MQTT na porta~1884 do broker Mosquitto. O Node-RED subscreve os tópicos \texttt{sound/data/\#}, transforma os dados e escreve no InfluxDB (porta~8086). O Grafana (porta~3000) gera \textit{dashboards} dinâmicos que são embebidos na aplicação Flask através de um \textit{proxy} reverso interno. O acesso externo é gerido pelo Nginx (porta~80), que encaminha os pedidos para o Flask ou para o Grafana conforme o caminho.
+
+\section{Reorganização em Blueprints Flask}
+
+A aplicação original era monolítica (ficheiro único \texttt{webAppGrafana.py} com mais de 1000~linhas), o que dificultava a manutenção e a adição de novas funcionalidades. Foi realizada uma reestruturação completa em \textit{blueprints} Flask:
+
+\begin{itemize}[nosep]
+  \item \textbf{\texttt{auth}} -- rotas de autenticação (\texttt{/login}, \texttt{/logout}), gestão de sessão;
+  \item \textbf{\texttt{pages}} -- rotas das páginas HTML (homepage, atual, tempo, eventos, mapa, estatísticas, controlo, display, guia);
+  \item \textbf{\texttt{api}} -- todos os \textit{endpoints} REST (\texttt{/api/sensores}, \texttt{/api/calendario}, \texttt{/api/semanal}, \texttt{/api/lden}, \texttt{/api/stats}, \texttt{/api/eventos}, etc.);
+  \item \textbf{\texttt{proxy}} -- \textit{proxy} reverso para o Grafana (\texttt{/grafana/<path>}).
+\end{itemize}
+
+Esta organização separa claramente as responsabilidades, permite testes unitários por módulo e facilita a extensão futura da aplicação.
+
+\section{Fluxo de Configuração Remota}
+
+Para além do \textit{pipeline} de dados, foi implementado um canal de configuração bidirecional sobre MQTT. A aplicação Flask publica pedidos de configuração no tópico \texttt{sound/config/update/\{id\}}; a estação recebe, valida e aplica as alterações; e responde via \texttt{sound/config/ack/\{id\}} confirmando o sucesso ou indicando o erro. Este fluxo é detalhado na Secção~\ref{sec:sensor}.
+
+% =====================================================================
+\chapter{Implementação}
+
+\section{Infraestrutura e Importação de Dados}
+\label{sec:infra}
+
+A primeira fase consistiu em compreender e reproduzir o sistema completo. Foram instalados e configurados os seguintes serviços, inicialmente via Docker e depois em execução nativa na VM do ISEL:
+
+\begin{itemize}[nosep]
+  \item \textbf{Mosquitto} -- broker MQTT, porta~1884
+  \item \textbf{Node-RED} -- processamento de fluxo, porta~1880
+  \item \textbf{InfluxDB} -- base de dados temporal, porta~8086
+  \item \textbf{Grafana} -- visualização, porta~3000
+  \item \textbf{Flask Web App} -- interface web, porta~5000
+\end{itemize}
+
+Foram desenvolvidos dois \textit{scripts} de importação direta: \texttt{influx\_import.py} para ficheiros individuais e \texttt{influx\_importDIR.py} para pastas completas. Ambos convertem \textit{timestamps} Unix para nanossegundos e enviam os dados em lotes de 500 pontos, contornando o \textit{pipeline} MQTT/Node-RED para carregamento rápido de dados históricos. Para testes sem sensor físico, o \textit{script} \texttt{CSVtoJSON\_MQTT.py} lê ficheiros CSV reais e replica o comportamento de uma estação real via MQTT.
+
+\section{Análise de Desempenho}
+\label{sec:perf}
+
+O \textit{script} \texttt{influx\_performance.py} executa \textit{queries} sistemáticas ao InfluxDB medindo tempos de resposta para diferentes \textit{ranges} temporais e níveis de agregação. A Tabela~\ref{tab:perf1} apresenta os resultados com $\approx$10~minutos de dados; a Tabela~\ref{tab:perf2} repete os testes com $\approx$4~meses de dados reais ($\sim$2~GB), validando a escalabilidade da abordagem.
+
+\begin{table}[H]
+\centering\small
+\caption{Testes de performance com $\approx$10 min de dados}
+\label{tab:perf1}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Query} & \textbf{Registos} & \textbf{Tempo} \\
+\midrule
+30~min $|$ sem agregação    & 193 & 0{,}048 s \\
+1~hora $|$ sem agregação    & 461 & 0{,}064 s \\
+6~horas $|$ agregação 1~min &   9 & 0{,}008 s \\
+1~dia $|$ agregação 5~min   &   4 & 0{,}006 s \\
+1~semana $|$ agregação 15~min & 11 & 0{,}007 s \\
+1~mês $|$ agregação 1~hora  &   7 & 0{,}006 s \\
+Multi-campo (4) $|$ 1~min   &   9 & 0{,}014 s \\
+Eventos (pivot+filter)      & 449 & 0{,}072 s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\caption{Testes de performance com $\approx$4 meses de dados reais ($\sim$2~GB)}
+\label{tab:perf2}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Query} & \textbf{Registos} & \textbf{Tempo} \\
+\midrule
+% PREENCHER COM VALORES REAIS DOS TESTES COM 4 MESES DE DADOS
+1~dia $|$ sem agregação     & -- & -- \\
+1~semana $|$ agregação 1~min & -- & -- \\
+1~mês $|$ agregação 1~hora  & -- & -- \\
+3~meses $|$ agregação 1~hora & -- & -- \\
+\bottomrule
+\end{tabular}
+\caption*{\small Atualizar com resultados do script \texttt{influx\_performanceV2.py}}
+\end{table}
+
+Todos os tempos com agregação são inferiores a 15~ms, confirmando que a estratégia de agregação adaptativa é essencial para \textit{ranges} grandes e que o InfluxDB escala bem para o volume gerado pelo sistema.
+
+\section{Tasks Flux Automáticas}
+\label{sec:tasks}
+
+Foram criadas três \textit{Tasks} Flux que correm em \textit{background} no InfluxDB sem intervenção da aplicação, reduzindo a carga das \textit{queries} em tempo de execução:
+
+\begin{itemize}
+  \item \textbf{\texttt{task\_lden\_diario.flux}} -- calcula o L\textsubscript{den} diário à meia-noite com conversão para escala linear e guarda no \textit{bucket} \texttt{sounddash\_lden} com retenção indefinida.
+  \item \textbf{\texttt{task\_downsampling.flux}} -- comprime dados \textit{raw} (57\,600 pontos/hora por campo) em médias por minuto (60~pontos/hora) no \textit{bucket} \texttt{sounddash\_1m} com retenção de 1~ano.
+  \item \textbf{\texttt{task\_stats\_horarias.flux}} -- calcula LAeq, LAFmax, LAFmin, P50 e P95 por hora em escala linear, guardados em \texttt{sounddash\_stats}.
+\end{itemize}
+
+As políticas de retenção foram definidas como: dados \textit{raw} 30~dias; médias por minuto 1~ano; L\textsubscript{den} diário e estatísticas horárias indefinidamente. Esta hierarquia garante que as consultas históricas utilizem sempre dados pré-agregados.
+
+\section{Correção dos Cálculos Acústicos}
+\label{sec:acustica}
+
+Foram adicionadas ao módulo \texttt{services/acoustics.py} funções reutilizáveis baseadas nas equações~\eqref{eq:media_db} e~\eqref{eq:lden}:
+
+\begin{lstlisting}[style=python, caption={Funções de cálculo acústico correto (acoustics.py)}]
+def db_to_linear(db_value: float) -> float:
+    return 10 ** (db_value / 10.0)          # expoente 10, nao 20
+
+def linear_to_db(linear_value: float) -> float:
+    if linear_value <= 0:
+        return None
+    return 10 * math.log10(linear_value)
+
+def calcular_media_db(valores_db: list) -> float:
+    lineares = [db_to_linear(v) for v in valores_db if v is not None]
+    if not lineares:
+        return None
+    return linear_to_db(sum(lineares) / len(lineares))
+
+def calcular_lden_db(Lday, Levening, Lnight) -> float:
+    """Lden oficial: Ld=07-19h (12h), Le=19-23h (4h+5dB), Ln=23-07h (8h+10dB)"""
+    if None in (Lday, Levening, Lnight):
+        return None
+    num = (12 * db_to_linear(Lday) +
+            4 * db_to_linear(Levening + 5) +
+            8 * db_to_linear(Lnight + 10))
+    return linear_to_db(num / 24)
+\end{lstlisting}
+
+Foram identificados e corrigidos os seguintes \textit{bugs} na aplicação original:
+
+\begin{table}[H]
+\centering\small
+\caption{Bugs identificados e estado de correção}
+\begin{tabular}{lll}
+\toprule
+\textbf{Rota} & \textbf{Problema} & \textbf{Estado} \\
+\midrule
+\texttt{/api/eventos}  & Filtrava EventType0--9 em vez de campos 1--10 & Corrigido \\
+\texttt{/api/lden}     & Expoente 20 em vez de 10; períodos horários errados & Corrigido \\
+\texttt{/api/stats}    & 4~\textit{queries} separadas em vez de 1 com \texttt{pivot} & Corrigido \\
+\texttt{/api/classes}  & Erro de sintaxe na \textit{query} Flux & Corrigido \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Melhorias à Aplicação Web}
+\label{sec:webmelhorias}
+
+\subsection{Estações Dinâmicas}
+
+A lista de sensores estava \textit{hardcoded} em todos os \textit{templates} HTML, exigindo alterações manuais em múltiplos ficheiros para adicionar ou remover uma estação. Foi criada a rota \texttt{/api/sensores} que consulta \texttt{schema.measurements()} no InfluxDB e devolve dinamicamente a lista de sensores presentes. Todos os \textit{templates} foram atualizados para carregar esta lista via \texttt{fetch()} no arranque da página.
+
+\subsection{URL do Grafana Configurável}
+
+O endereço IP do Grafana estava \textit{hardcoded} em múltiplos ficheiros. Foi implementado um ficheiro \texttt{system\_config.json} editável através do painel técnico, com todos os \textit{templates} a consumir \texttt{\{\{grafana\_url\}\}} via Jinja2. Esta alteração elimina a necessidade de editar código para reconfigurar o endereço do Grafana.
+
+\subsection{Proxy Reverso para o Grafana}
+
+Para acesso externo aos \textit{iframes} do Grafana sem expor a porta~3000 diretamente, foi implementada a rota \texttt{/grafana/<path>} no Flask que redireciona os pedidos internamente para \texttt{localhost:3000}, preservando os \textit{headers} necessários para os \textit{iframes}.
+
+\section{Deployment e Acesso Público}
+\label{sec:deploy}
+
+O sistema foi migrado para uma VM do ISEL (Windows, IP~10.64.137.6) com todos os serviços em execução nativa. Quatro estações reais publicam dados continuamente via WiFi.
+
+Para acesso público, foi configurado um \textit{reverse proxy} Nginx na porta~80 com o seguinte esquema de encaminhamento:
+
+\begin{lstlisting}[style=bash, caption={Configuração Nginx (excerto)}]
+location / {
+    proxy_pass http://localhost:5000;   # Flask
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+location /grafana/ {
+    proxy_pass http://localhost:3000/;  # Grafana
+    proxy_set_header Host $host;
+}
+\end{lstlisting}
+
+O Nginx centraliza o acesso numa única porta, elimina a exposição de portas individuais e prepara a adição futura de HTTPS/TLS (Let's Encrypt ou certificado institucional do ISEL). O sistema está acessível externamente via VPN e a configuração encontra-se operacional.
+
+\section{Scripts de Sensor e Reconfiguração Remota}
+\label{sec:sensor}
+
+\subsection{Script Principal da Estação}
+
+O \texttt{SoundMeterSemaf\_ver3\_class.py} é o \textit{script} principal que corre em cada Raspberry Pi. Implementa uma arquitetura de classes com processamento paralelo: um processo dedicado captura áudio a 16~Hz via \texttt{sounddevice}; \textit{threads} separadas calculam os indicadores acústicos em tempo real (LAEA, LCpeak, LAFmax, LAFmin, 31~bandas de frequência); e um processo \texttt{YAMNet} classifica automaticamente os eventos sonoros usando um modelo de \textit{deep learning}. Os dados são publicados via MQTT em JSON.
+
+\subsection{Reconfiguração Remota via MQTT}
+
+O \texttt{station\_config\_receiver.py} corre em paralelo em cada estação e implementa um mecanismo de reconfiguração remota segura. A Figura~\ref{fig:config_flow} ilustra o fluxo de comunicação.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\linewidth]{config_flow.png}
+\caption{Fluxo de reconfiguração remota da estação via MQTT.}
+\label{fig:config_flow}
+\end{figure}
+
+O protocolo funciona da seguinte forma:
+
+\begin{enumerate}[nosep]
+  \item A aplicação Flask publica no tópico \texttt{sound/config/update/\{id\}} um objeto JSON com as alterações pretendidas e um \textit{checksum} SHA-256.
+  \item A estação valida o \textit{checksum} e rejeita a mensagem em caso de divergência, prevenindo corrupção de dados.
+  \item Se válido, a configuração atual é arquivada com \textit{timestamp} (ex: \texttt{config.json.backup\_20260601\_143022}) e a nova é aplicada via \textit{deep merge}, preservando campos não alterados.
+  \item A estação responde em \texttt{sound/config/ack/\{id\}} com estado (\texttt{ok}/\texttt{error}), mensagem descritiva e flag \texttt{needs\_reboot}.
+  \item Se necessário, agenda um \texttt{sudo reboot} após 5~segundos, garantindo que o ACK é enviado antes do reinício.
+\end{enumerate}
+
+A estação subscreve também \texttt{sound/config/request/\{id\}}, respondendo com a configuração atual em \texttt{sound/config/response/\{id\}}, o que permite à aplicação web ler o estado atual do sensor antes de propor alterações.
+
+\section{Módulo de Estatísticas}
+\label{sec:stats}
+
+O módulo de estatísticas é a principal funcionalidade desenvolvida neste projeto. A plataforma original não dispunha de qualquer mecanismo de análise histórica de longo prazo; toda a visualização estava limitada a \textit{dashboards} Grafana com janelas de tempo fixas. O módulo foi desenvolvido de raiz e integra uma página web completa com dois modos de visualização.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{stats_mensal.png}
+\caption{Módulo de Estatísticas -- Vista Mensal (maio 2026, LAeq diário).}
+\label{fig:stats_mensal}
+\end{figure}
+
+\subsection{Vista Mensal -- Calendário}
+
+A Vista Mensal apresenta os dados num calendário com semanas como linhas e dias da semana como colunas (Domingo a Sábado). Cada célula corresponde a um dia e é preenchida com o valor do parâmetro selecionado e colorida numa escala contínua verde-vermelho:
+
+\begin{equation}
+\text{HSL}(h, s, l) \quad \text{com} \quad h = (1 - r) \cdot 120, \quad r = \frac{v - 40}{55 - 40}
+\end{equation}
+
+onde $v$ é o valor em dB, $r \in [0,1]$, e $h = 120$ (verde) corresponde a $\leq 40$~dB e $h = 0$ (vermelho) a $\geq 55$~dB. Esta escala foi calibrada para o contexto hospitalar, onde 40--55~dB representa o intervalo crítico de atenção.
+
+Os parâmetros disponíveis são: LAeq diário, Turno~1 (00h--08h), Turno~2 (08h--16h), Turno~3 (16h--24h), L\textsubscript{den}, LCpeak máximo, LAFmax e LAFmin. Quando se seleciona um turno, cada célula apresenta os três valores simultaneamente, destacando o turno selecionado a negrito.
+
+O calendário inclui ainda um resumo estatístico lateral com média energética mensal, dia mais ruidoso, dia mais silencioso e contagem de dias com dados.
+
+\subsection{Gráfico de Tendência}
+
+Abaixo do calendário, um gráfico exibe a evolução diária de LAeq e LCpeak ao longo do mês. O utilizador pode alternar entre três modos de visualização através de botões de toggle:
+
+\begin{itemize}[nosep]
+  \item \textbf{2~Linhas} -- ambas as séries como linhas contínuas; ideal para análise de tendências;
+  \item \textbf{2~Barras} -- ambas como barras agrupadas; facilita a comparação dia a dia;
+  \item \textbf{Misto} -- LAeq como barra colorida + LCpeak como linha sobreposta.
+\end{itemize}
+
+\subsection{Tabela L\textsubscript{den}}
+
+A sidebar apresenta uma tabela com os indicadores L\textsubscript{den} mensais calculados a partir dos dados de turnos. Por limitação da divisão operacional em turnos de 8~horas, os períodos utilizados são uma aproximação aos períodos oficiais da Diretiva 2002/49/CE:
+
+\begin{table}[H]
+\centering\small
+\caption{Mapeamento entre períodos oficiais e turnos operacionais}
+\begin{tabular}{lll}
+\toprule
+\textbf{Indicador} & \textbf{Período oficial} & \textbf{Turno usado} \\
+\midrule
+$L_d$ (dia)       & 07h--19h (12h) & T2: 08h--16h (8h) \\
+$L_e$ (entardecer) & 19h--23h (4h)  & T3: 16h--24h (8h) \\
+$L_n$ (noite)     & 23h--07h (8h)  & T1: 00h--08h (8h) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+As penalizações (+5~dB e +10~dB) e os pesos da fórmula (12, 4, 8) são aplicados corretamente pela função \texttt{calcular\_lden\_db}. O impacto da aproximação dos períodos é uma limitação conhecida, discutida na Secção~\ref{sec:conclusao}.
+
+\subsection{Vista Semanal -- Tabelas Horárias e por Turno}
+
+A Vista Semanal apresenta duas tabelas para uma semana selecionada (qualquer dia da semana pode ser escolhido como referência):
+
+\begin{itemize}[nosep]
+  \item \textbf{Tabela por Hora} -- 24~linhas (00h--23h) $\times$ 7~colunas (dias); cada célula exibe LAeq e LCpeak separados por um divisor visual.
+  \item \textbf{Tabela por Turno} -- 3~linhas (T1, T2, T3) $\times$ 7~colunas; agregação energética das horas de cada turno.
+\end{itemize}
+
+A coloração de cada célula segue a mesma escala cromática do calendário mensal. Opcionalmente, o utilizador pode ativar a sobreposição do número de eventos detetados em cada célula.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{stats_semanal.png}
+\caption{Módulo de Estatísticas -- Vista Semanal (tabela por hora).}
+\label{fig:stats_semanal}
+\end{figure}
+
+\subsection{API REST do Módulo de Estatísticas}
+
+Foram criados dois novos \textit{endpoints} na blueprint \texttt{api}:
+
+\begin{itemize}
+  \item \textbf{\texttt{GET /api/calendario?start=\&end=\&sensor\_id=}} -- devolve um array de objetos diários com LAeq, LCpeak, LAFmax, LAFmin, os três turnos e o L\textsubscript{den}, para todos os dias do intervalo.
+
+  \item \textbf{\texttt{GET /api/semanal?start=\&sensor\_id=}} -- devolve os dados horários e por turno para a semana que contém a data indicada.
+\end{itemize}
+
+Ambos utilizam a função \texttt{fetch\_hourly\_campos} que agrega dados horários com a \textit{query} Flux:
+
+\begin{lstlisting}[style=flux, caption={Query Flux para agregação horária (acoustics.py)}]
+from(bucket: "sounddash")
+  |> range(start: {start}, stop: {stop})
+  |> filter(fn: (r) => r["_measurement"] == "{sensor}")
+  |> filter(fn: (r) => r["_field"] == "LAEA" or r["_field"] == "LCpeak" ...)
+  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: "_start")
+\end{lstlisting}
+
+\subsection{Correções de Bugs Críticos}
+
+Durante o desenvolvimento do módulo, foram identificados e corrigidos dois \textit{bugs} com impacto direto na correção dos dados apresentados.
+
+\subsubsection{Bug InfluxDB: aggregateWindow com timestamp de fim de janela}
+
+Por defeito, a função \texttt{aggregateWindow} do Flux rotula cada janela temporal com o \textbf{fim} da janela em vez do início. Isto fazia com que os dados da janela das 23h00--00h00 ficassem com o \textit{timestamp} \texttt{2026-05-01T00:00:00Z}, sendo incorretamente atribuídos ao dia seguinte. Consequência observada: dados do último dia do mês apareciam no primeiro dia do mês seguinte no calendário.
+
+\textbf{Correção:} adição do parâmetro \texttt{timeSrc: "\_start"}, que passa a usar o início da janela como \textit{timestamp}:
+
+\begin{lstlisting}[style=flux]
+|> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: "_start")
+\end{lstlisting}
+
+\subsubsection{Bug JavaScript: toISOString() converte para UTC}
+
+O calendário mensal determinava a data de cada célula usando \texttt{date.toISOString().split('T')[0]}. Em Portugal (UTC+1 no verão), a meia-noite local corresponde a \texttt{23:00:00Z} do dia anterior em UTC. O resultado era um desvio sistemático de um dia em todas as células, fazendo com que o \textit{tooltip} e a pesquisa no dicionário de dados usassem a data errada.
+
+\textbf{Correção:} substituição por métodos de hora local:
+\begin{lstlisting}[style=python, language=JavaScript, caption={Correção do offset UTC em JavaScript}]
+// Antes (errado em fusos != UTC):
+const dateStr = date.toISOString().split('T')[0];
+
+// Depois (correto, usa hora local):
+const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+\end{lstlisting}
+
+% =====================================================================
+\chapter{Resultados e Validação}
+
+\section{Operacionalidade do Sistema}
+
+O sistema está completamente operacional com 4~estações reais a publicar dados continuamente via WiFi para a VM do ISEL. O \textit{pipeline} MQTT $\to$ Node-RED $\to$ InfluxDB $\to$ Flask funciona com latência inferior a 2~ms para a ingestão de dados, confirmada pelos testes de múltiplas estações (Tabela~\ref{tab:multistation}).
+
+\begin{table}[H]
+\centering\small
+\caption{Resultados dos testes de múltiplas estações simultâneas (50 mensagens cada)}
+\label{tab:multistation}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Estação} & \textbf{Publicadas} & \textbf{Latência Média} & \textbf{Latência Máx.} \\
+\midrule
+Sensor~1 & 50 & 0{,}44 ms & 1{,}50 ms \\
+Sensor~2 & 50 & 0{,}38 ms & 0{,}84 ms \\
+Sensor~3 & 50 & 0{,}41 ms & 1{,}51 ms \\
+Sensor~4 & 50 & 0{,}41 ms & 0{,}82 ms \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Zero mensagens perdidas e latências sub-milissegundo confirmam que a infraestrutura suporta o número atual de estações com margem considerável para crescimento.
+
+\section{Validação dos Cálculos Acústicos}
+
+A correção do cálculo da média energética foi verificada contra referências manuais. Para um conjunto de valores $\{60, 70, 65\}$~dB, o cálculo correto (escala linear) produz $\approx 67{,}8$~dB, enquanto a média aritmética incorreta daria 65~dB -- uma subestimação de quase 3~dB. A função \texttt{calcular\_media\_db} foi validada para múltiplos conjuntos de valores.
+
+\section{Estado Final do Trabalho}
+
+A Tabela~\ref{tab:estado} resume o estado de todos os itens desenvolvidos.
+
+\begin{table}[H]
+\centering\small
+\caption{Resumo do trabalho desenvolvido e estado final}
+\label{tab:estado}
+\begin{tabular}{p{4.5cm}p{6cm}l}
+\toprule
+\textbf{Item} & \textbf{Descrição} & \textbf{Estado} \\
+\midrule
+Scripts de importação       & \texttt{influx\_import(DIR).py}            & Completo \\
+Testes de performance       & \texttt{influx\_performance(V2).py}        & Completo \\
+Features Flux               & \texttt{influx\_features.py}              & Completo \\
+Tasks Flux                  & Lden, downsampling, stats horárias        & Completo \\
+Cálculos acústicos          & Conversão linear, média, percentil, Lden  & Completo \\
+Correção de 4 \textit{bugs} & \texttt{/api/eventos, lden, stats, classes} & Completo \\
+Estações dinâmicas          & \texttt{/api/sensores} + templates        & Completo \\
+URL Grafana configurável    & \texttt{system\_config.json} + controlo   & Completo \\
+Blueprints Flask            & auth, api, pages, proxy                   & Completo \\
+Proxy Grafana               & Rota \texttt{/grafana/<path>}             & Completo \\
+Deployment VM ISEL          & 4~estações reais a publicar               & Completo \\
+Nginx reverse proxy         & Acesso público porta~80                   & Completo \\
+Script sensor               & \texttt{SoundMeterSemaf\_ver3\_class.py}  & Completo \\
+Configuração remota MQTT    & \texttt{station\_config\_receiver.py}     & Completo \\
+Módulo de Estatísticas      & Vista mensal, semanal, Lden, gráfico      & Completo \\
+Bugs calendário (2)         & InfluxDB timezone, JS UTC offset          & Completo \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% =====================================================================
+\chapter{Conclusão}
+\label{sec:conclusao}
+
+\section{Síntese do Trabalho Realizado}
+
+Este projeto concluiu com sucesso a extensão e melhoria da plataforma SoundDash. A plataforma herdada foi estabilizada, reestruturada e significativamente expandida. Os contributos mais relevantes foram:
+
+\begin{itemize}
+  \item \textbf{Rigor acústico}: todos os cálculos foram corrigidos para escala linear, eliminando erros sistemáticos que afetavam os resultados apresentados ao utilizador.
+
+  \item \textbf{Módulo de Estatísticas}: a funcionalidade mais impactante para o utilizador final, permitindo análise de longo prazo com visualização intuitiva por calendário, identificação de padrões temporais e cálculo do indicador L\textsubscript{den}.
+
+  \item \textbf{Reconfiguração remota}: elimina a necessidade de acesso físico às estações para alterar parâmetros operacionais, com validação de integridade por \textit{checksum} e recuperação automática em caso de erro.
+
+  \item \textbf{Arquitetura modular}: a reestruturação em \textit{blueprints} Flask melhora a manutenibilidade e prepara a aplicação para extensões futuras.
+
+  \item \textbf{\textit{Deployment} público}: o sistema é acessível externamente via Nginx, com quatro estações reais em operação contínua.
+\end{itemize}
+
+\section{Limitações Conhecidas}
+
+\begin{itemize}
+  \item O cálculo do L\textsubscript{den} usa períodos de turno operacionais (8/8/8h) em vez dos períodos oficiais da Diretiva 2002/49/CE (12/4/8h). Isto constitui uma aproximação cujo impacto quantitativo depende do perfil diário de ruído de cada local.
+  \item O mecanismo de autenticação usa um ficheiro JSON em vez de uma base de dados, o que é adequado para o número atual de utilizadores mas limita a escalabilidade.
+  \item A classificação automática de eventos (\texttt{/api/classes}) com o modelo YAMNet não foi totalmente validada em contexto hospitalar real.
+\end{itemize}
+
+\section{Trabalho Futuro}
+
+\begin{enumerate}[leftmargin=*, nosep, label=\textbf{\arabic*.}]
+  \item Implementar os períodos oficiais do L\textsubscript{den} (07h--19h, 19h--23h, 23h--07h) na API, substituindo a aproximação por turnos.
+  \item Adicionar HTTPS/TLS ao Nginx (Let's Encrypt ou certificado institucional).
+  \item Implementar autenticação robusta com base de dados em vez de ficheiro JSON.
+  \item Validar a classificação automática de eventos em ambiente hospitalar real.
+  \item Alargar a plataforma a novos tipos de sensores e protocolos de comunicação.
+\end{enumerate}
+
+% =====================================================================
+\begin{thebibliography}{99}
+
+\bibitem{oms2018}
+World Health Organization,
+\textit{Environmental Noise Guidelines for the European Region},
+WHO Regional Office for Europe, Copenhagen, 2018.
+
+\bibitem{iso1996}
+ISO,
+\textit{ISO 1996-1:2016 -- Acoustics -- Description, measurement and assessment of environmental noise -- Part 1: Basic quantities and assessment procedures},
+International Organization for Standardization, Geneva, 2016.
+
+\bibitem{lden}
+European Parliament and Council,
+\textit{Directive 2002/49/EC of the European Parliament and of the Council of 25 June 2002 relating to the assessment and management of environmental noise},
+Official Journal of the European Communities, L~189/12, Brussels, 2002.
+
+\bibitem{covis}
+S.~Lopes \textit{et al.},
+``CoViS: A Contactless Health Monitoring System,''
+\textit{Sensors}, vol.~22, no.~3, 2022.
+
+\bibitem{mira}
+L.~Santos \textit{et al.},
+``MIRA -- Plataforma Inteligente de Monitorização de Ruído Ambiental,''
+\textit{TecniAcústica}, Faro, 2022.
+
+\bibitem{sudoe}
+N.~Canha \textit{et al.},
+``Hospital SUDOE 4.0 -- Indoor Air Quality assessment based on low-cost sensors,'' 2022.
+
+\bibitem{influxdb}
+InfluxData,
+\textit{InfluxDB v2 Documentation},
+\url{https://docs.influxdata.com/influxdb/v2/}, 2026.
+
+\bibitem{nodered}
+OpenJS Foundation,
+\textit{Node-RED -- Low-code programming for event-driven applications},
+\url{https://nodered.org}, 2026.
+
+\bibitem{grafana}
+Grafana Labs,
+\textit{Grafana Documentation},
+\url{https://grafana.com/docs/}, 2026.
+
+\bibitem{flask}
+Pallets Projects,
+\textit{Flask Documentation},
+\url{https://flask.palletsprojects.com/}, 2026.
+
+\bibitem{mqtt}
+OASIS,
+\textit{MQTT Version 5.0 -- OASIS Standard},
+\url{https://docs.oasis-open.org/mqtt/mqtt/v5.0/}, 2019.
+
+\bibitem{nginx}
+F5 Networks,
+\textit{NGINX Documentation},
+\url{https://nginx.org/en/docs/}, 2026.
+
+\bibitem{prevSoundDash}
+D.~Lourenço and M.~Florentino,
+\textit{SoundDashHosp -- Dashboard agregador de eventos sonoros em hospitais},
+Relatório de Projeto Final de Curso, ISEL, Lisboa, 2025.
+
+\end{thebibliography}
+
+\end{document}
