@@ -88,7 +88,7 @@ function renderCalendar(dias, param) {
     for (let d = 0; d < 7; d++) {
       const date = new Date(current);
       date.setDate(current.getDate() + d);
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
       const td = document.createElement('td');
       td.className = 'cal-cell';
 
