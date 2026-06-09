@@ -53,6 +53,14 @@
 
 .cal-cell:hover { transform: scale(1.06); }
 
+.cal-cell.selected {
+  outline: 3px solid #2c3e50;
+  outline-offset: -2px;
+  transform: scale(1.06);
+  z-index: 1;
+  position: relative;
+}
+
 .cal-cell.no-data {
   background: #e8ecef;
   color: #bbb;

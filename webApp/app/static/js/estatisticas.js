@@ -5,7 +5,9 @@ const DIAS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 let vistaAtual      = 'mensal';
 let semanalCache    = null;
 let showEventos     = false;
-let graficoChart = null;
+let graficoChart  = null;
+let graficoTipo   = 'lclaeq';
+let diasCache     = null;
 
 // ── Color helpers ──────────────────────────────────────────────────────────
 
@@ -111,6 +113,8 @@ function renderCalendar(dias, param) {
           td.style.backgroundColor = dbToColor(val);
           td.title = `${dateStr}: ${val.toFixed(1)} dB`;
         }
+        td.style.cursor = 'pointer';
+        td.addEventListener('click', () => mostrarDia(dateStr, td));
       } else if (!info || date < firstDay || date > lastDay) {
         td.classList.add('other-month');
       } else {
@@ -124,6 +128,66 @@ function renderCalendar(dias, param) {
     body.appendChild(tr);
     current.setDate(current.getDate() + 7);
   }
+}
+
+function setPeriodoLabel(text, showReset) {
+  const wrap  = document.getElementById('periodoLabel');
+  const label = document.getElementById('periodoLabelText');
+  const btn   = document.getElementById('periodoLabelReset');
+  label.textContent = text;
+  wrap.classList.remove('d-none');
+  btn.classList.toggle('d-none', !showReset);
+}
+
+function resetParaMes() {
+  if (!diasCache) return;
+  document.querySelectorAll('.cal-cell.selected').forEach(el => el.classList.remove('selected'));
+  const mes = parseInt(document.getElementById('mesSelect').value);
+  const ano = parseInt(document.getElementById('anoSelect').value);
+  setPeriodoLabel(`Média — ${MESES[mes - 1]} ${ano}`, false);
+  atualizarTurnos(diasCache);
+  atualizarLden(diasCache);
+}
+
+async function mostrarDia(dateStr, tdEl) {
+  const sensor = document.getElementById('sensorSelect').value;
+  document.querySelectorAll('.cal-cell.selected').forEach(el => el.classList.remove('selected'));
+  tdEl.classList.add('selected');
+
+  const [y, m, d] = dateStr.split('-');
+  setPeriodoLabel(`Dia ${d}/${m}/${y}`, true);
+
+  try {
+    const res  = await fetch(`/api/lden?start=${dateStr}T00:00:00&end=${dateStr}T23:59:59&sensor_id=${sensor}`);
+    const data = await res.json();
+    if (data.error) return;
+
+    const fmt = v => v !== null && v !== undefined ? v.toFixed(1) + ' dB' : '—';
+
+    document.getElementById('turnoT1').textContent  = fmt(data.turno1);
+    document.getElementById('turnoT2').textContent  = fmt(data.turno2);
+    document.getElementById('turnoT3').textContent  = fmt(data.turno3);
+    document.getElementById('turnosBox').classList.remove('d-none');
+
+    document.getElementById('ldenLd').textContent   = fmt(data.ld);
+    document.getElementById('ldenLe').textContent   = fmt(data.le);
+    document.getElementById('ldenLn').textContent   = fmt(data.ln);
+    document.getElementById('ldenLden').textContent = fmt(data.lden);
+    document.getElementById('ldenBox').classList.remove('d-none');
+  } catch(e) {
+    console.error('Erro ao carregar dia:', e);
+  }
+}
+
+function setGraficoTipo(tipo) {
+  graficoTipo = tipo;
+  const map = { lclaeq: 'btnGLCLaeq', turnos: 'btnGTurnos', lden: 'btnGLden' };
+  Object.entries(map).forEach(([k, id]) => {
+    document.getElementById(id).className = k === tipo
+      ? 'btn btn-primary btn-sm'
+      : 'btn btn-outline-primary btn-sm';
+  });
+  if (diasCache) renderGrafico(diasCache);
 }
 
 function atualizarTurnos(dias) {
@@ -183,27 +247,42 @@ function atualizarLden(dias) {
 }
 
 function renderGrafico(dias) {
+  diasCache = dias;
   const wrap = document.getElementById('graficoWrap');
   const withData = dias.filter(d => d.has_data && d.laeq !== null);
   if (!withData.length) { wrap.classList.add('d-none'); return; }
   wrap.classList.remove('d-none');
 
-  const labels   = withData.map(d => d.date.slice(5).replace('-', '/'));
-  const laeqData = withData.map(d => d.laeq);
-  const lcData   = withData.map(d => d.lcpeak);
-
+  const labels = withData.map(d => d.date.slice(5).replace('-', '/'));
   if (graficoChart) { graficoChart.destroy(); graficoChart = null; }
 
-  const datasets = [
-    {
-      type: 'bar', label: 'LAeq (dB)', data: laeqData,
-      backgroundColor: 'rgba(41,128,185,0.75)', borderRadius: 3, yAxisID: 'y'
-    },
-    {
-      type: 'bar', label: 'LCpeak (dB)', data: lcData,
-      backgroundColor: 'rgba(231,76,60,0.75)', borderRadius: 3, yAxisID: 'y'
-    }
-  ];
+  let datasets;
+  if (graficoTipo === 'turnos') {
+    datasets = [
+      { type:'bar', label:'T1 — 00-08h', data: withData.map(d => d.turno1),
+        backgroundColor:'rgba(52,152,219,0.8)',   borderRadius:3 },
+      { type:'bar', label:'T2 — 08-16h', data: withData.map(d => d.turno2),
+        backgroundColor:'rgba(39,174,96,0.8)',    borderRadius:3 },
+      { type:'bar', label:'T3 — 16-00h', data: withData.map(d => d.turno3),
+        backgroundColor:'rgba(230,126,34,0.8)',   borderRadius:3 }
+    ];
+  } else if (graficoTipo === 'lden') {
+    datasets = [
+      { type:'bar', label:'Ld — 07-19h', data: withData.map(d => d.ld),
+        backgroundColor:'rgba(52,152,219,0.8)',   borderRadius:3 },
+      { type:'bar', label:'Le — 19-23h', data: withData.map(d => d.le),
+        backgroundColor:'rgba(230,126,34,0.8)',   borderRadius:3 },
+      { type:'bar', label:'Ln — 23-07h', data: withData.map(d => d.ln),
+        backgroundColor:'rgba(44,62,80,0.8)',     borderRadius:3 }
+    ];
+  } else {
+    datasets = [
+      { type:'bar', label:'LAeq (dB)',   data: withData.map(d => d.laeq),
+        backgroundColor:'rgba(41,128,185,0.75)',  borderRadius:3 },
+      { type:'bar', label:'LCpeak (dB)', data: withData.map(d => d.lcpeak),
+        backgroundColor:'rgba(231,76,60,0.75)',   borderRadius:3 }
+    ];
+  }
 
   const ctx = document.getElementById('graficoCanvas').getContext('2d');
   graficoChart = new Chart(ctx, {
@@ -266,6 +345,9 @@ async function atualizarCalendario() {
 
     document.getElementById('calendarTitle').textContent =
       `${MESES[mes - 1]} ${ano} — ${document.getElementById('paramSelect').selectedOptions[0].text}`;
+
+    document.querySelectorAll('.cal-cell.selected').forEach(el => el.classList.remove('selected'));
+    setPeriodoLabel(`Média — ${MESES[mes - 1]} ${ano}`, false);
 
     renderCalendar(data.dias, param);
     atualizarResumo(data.dias, param);
