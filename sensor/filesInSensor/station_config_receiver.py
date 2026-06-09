@@ -26,32 +26,39 @@ import copy
 
 
 class StationConfigReceiver:
-    def __init__(self, sensor_id, config_file_path, mqtt_broker='10.64.137.6', mqtt_port=1884):
+    def __init__(self, sensor_id, config_file_path, mqtt_broker='10.64.137.6', mqtt_port=1884,
+                 mqtt_transport='tcp', mqtt_path='/mqtt'):
         """
         Inicializa o receiver de configurações
-        
+
         Args:
             sensor_id: ID do sensor (ex: "2")
             config_file_path: Caminho para o ficheiro config.json local
             mqtt_broker: Endereço do broker MQTT
             mqtt_port: Porta do broker MQTT
+            mqtt_transport: 'tcp' (local) ou 'websockets' (remoto via Nginx)
+            mqtt_path: path WebSocket (ex: '/mqtt'), ignorado em modo tcp
         """
         self.sensor_id = str(sensor_id)
         self.config_file = config_file_path
         self.mqtt_broker = mqtt_broker
         self.mqtt_port = mqtt_port
-        
+
         # Verificar se ficheiro de config existe
         if not os.path.exists(self.config_file):
             print(f"[ERRO] Ficheiro de configuração não encontrado: {self.config_file}")
             sys.exit(1)
-        
+
         # Carregar config atual
         self.current_config = self.load_config()
-        
+
         # Setup MQTT
         client_id = f"station_{self.sensor_id}_config"
-        self.client = mqtt.Client(client_id=client_id, clean_session=True)
+        if mqtt_transport == 'websockets':
+            self.client = mqtt.Client(client_id=client_id, clean_session=True, transport="websockets")
+            self.client.ws_set_options(path=mqtt_path)
+        else:
+            self.client = mqtt.Client(client_id=client_id, clean_session=True)
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
         

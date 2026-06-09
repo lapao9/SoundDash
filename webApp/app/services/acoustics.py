@@ -77,7 +77,7 @@ def fetch_hourly_campos(sensor: str, start: str, stop: str, campos: list) -> lis
       |> range(start: {start}, stop: {stop})
       |> filter(fn: (r) => r["_measurement"] == "{sensor}")
       |> filter(fn: (r) => {field_filter})
-      |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)
+      |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: "_start")
     '''
     try:
         client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
@@ -151,7 +151,7 @@ def fetch_laeq_horario(sensor: str, start: str, stop: str) -> list:
     from(bucket: "{INFLUXDB_BUCKET}")
       |> range(start: {start}, stop: {stop})
       |> filter(fn: (r) => r["_measurement"] == "{sensor}" and r["_field"] == "LAEA")
-      |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)
+      |> aggregateWindow(every: 1h, fn: mean, createEmpty: false, timeSrc: "_start")
     '''
     try:
         client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)

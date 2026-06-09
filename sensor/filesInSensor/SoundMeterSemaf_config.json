@@ -63,6 +63,8 @@
     "broker2": "ISEL-LAA.isel.priv",
     "broker3": "10.63.13.39",
     "port": 1884,
+    "transport": "tcp",
+    "path": "/mqtt",
     "topic": "sound/levels"
   },
   "config_flags": {

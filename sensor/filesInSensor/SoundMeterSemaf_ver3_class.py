@@ -79,8 +79,10 @@ sensor_id = config.station.sensor_ID
 config_receiver = StationConfigReceiver(
     sensor_id=sensor_id,
     config_file_path='SoundMeterSemaf_config.json',
-    mqtt_broker='10.64.137.6',
-    mqtt_port=1884
+    mqtt_broker=config.mqtt.broker,
+    mqtt_port=config.mqtt.port,
+    mqtt_transport=getattr(config.mqtt, 'transport', 'tcp'),
+    mqtt_path=getattr(config.mqtt, 'path', '/mqtt')
 )
 
 config_thread = threading.Thread(target=config_receiver.start, daemon=True)
@@ -156,9 +158,12 @@ MQTT_BROKER2 = config.mqtt.broker2
 
 MQTT_PORT = config.mqtt.port
 MQTT_TOPIC = config.mqtt.topic
+MQTT_TRANSPORT = getattr(config.mqtt, 'transport', 'tcp')
+MQTT_PATH = getattr(config.mqtt, 'path', '/mqtt')
 print('MQTT_BROKER: ', MQTT_BROKER)
 print('MQTT_PORT: ', MQTT_PORT)
 print('MQTT_TOPIC: ', MQTT_TOPIC)
+print('MQTT_TRANSPORT: ', MQTT_TRANSPORT)
 
 
 #"config_flags"
@@ -2788,10 +2793,14 @@ def main():
     # Launch MQTT sender thread
     # -------------------------------
     if Publica_MQTT_OK:
-        
-        client = mqtt.Client()
+
+        if MQTT_TRANSPORT == 'websockets':
+            client = mqtt.Client(transport="websockets")
+            client.ws_set_options(path=MQTT_PATH)
+        else:
+            client = mqtt.Client()
         #client2 = mqtt.Client()
-        
+
         client.connect(MQTT_BROKER, MQTT_PORT, 60)
         #client2.connect(MQTT_BROKER2, MQTT_PORT, 60)
         
