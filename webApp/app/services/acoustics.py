@@ -34,13 +34,13 @@ def calcular_percentil_db(valores_db: list, percentil: float) -> float:
 
 
 def calcular_lden_db(Lday: float, Levening: float, Lnight: float) -> float:
-    # Hospital shifts: 8h each (T2=day 08-16, T3=evening 16-00, T1=night 00-08)
+    """Official EU Lden: Ld=07-19h (12h), Le=19-23h (4h+5dB), Ln=23-07h (8h+10dB)."""
     if None in (Lday, Levening, Lnight):
         return None
     num = (
-        8 * db_to_linear(Lday) +
-        8 * db_to_linear(Levening + 5) +
-        8 * db_to_linear(Lnight + 10)
+        12 * db_to_linear(Lday) +
+        4  * db_to_linear(Levening + 5) +
+        8  * db_to_linear(Lnight + 10)
     )
     return linear_to_db(num / 24)
 

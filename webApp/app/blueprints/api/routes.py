@@ -36,15 +36,18 @@ def get_lden():
     except Exception:
         return jsonify({'error': 'Formato de data inválido'}), 400
 
-    d0  = start_dt.replace(hour=0,  minute=0,  second=0,  microsecond=0)
-    d8  = start_dt.replace(hour=8,  minute=0,  second=0,  microsecond=0)
-    d16 = start_dt.replace(hour=16, minute=0,  second=0,  microsecond=0)
-    d24 = start_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+    # Official Lden periods (EU Directive 2002/49/EC)
+    d_start = start_dt.replace(hour=0,  minute=0,  second=0,  microsecond=0)
+    d7      = start_dt.replace(hour=7,  minute=0,  second=0,  microsecond=0)
+    d19     = start_dt.replace(hour=19, minute=0,  second=0,  microsecond=0)
+    d23     = start_dt.replace(hour=23, minute=0,  second=0,  microsecond=0)
+    d_end   = start_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    # Hospital shifts: T2=day(08-16), T3=evening(16-00+5dB), T1=night(00-08+10dB)
-    valores_dia   = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d8),  to_rfc3339(d16))
-    valores_tarde = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d16), to_rfc3339(d24))
-    valores_noite = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d0),  to_rfc3339(d8))
+    # Ld=07-19h, Le=19-23h, Ln=23-07h (split as 00-07 + 23-24 of same day)
+    valores_dia   = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d7),      to_rfc3339(d19))
+    valores_tarde = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d19),     to_rfc3339(d23))
+    valores_noite = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d_start), to_rfc3339(d7)) + \
+                    fetch_valores_db(sensor, 'LAEA', to_rfc3339(d23),     to_rfc3339(d_end))
 
     Lday     = calcular_media_db(valores_dia)
     Levening = calcular_media_db(valores_tarde)
@@ -55,10 +58,14 @@ def get_lden():
 
     Lden = calcular_lden_db(Lday, Levening, Lnight)
     return jsonify({
-        'laeq_night':   round(Lnight,   2),
+        'ld':   round(Lday,     2),
+        'le':   round(Levening, 2),
+        'ln':   round(Lnight,   2),
+        'lden': round(Lden,     2),
+        # aliases for backwards compat
         'laeq_day':     round(Lday,     2),
         'laeq_evening': round(Levening, 2),
-        'lden':         round(Lden,     2)
+        'laeq_night':   round(Lnight,   2),
     })
 
 
@@ -362,15 +369,23 @@ def get_calendario():
 
         if laea_hours:
             all_vals = [h['value'] for h in laea_hours]
+            # Hospital shifts (T1/T2/T3)
             t1_vals  = [h['value'] for h in laea_hours if h['hour'] < 8]
             t2_vals  = [h['value'] for h in laea_hours if 8  <= h['hour'] < 16]
             t3_vals  = [h['value'] for h in laea_hours if 16 <= h['hour'] < 24]
+            # Official Lden periods: Ld=07-19h, Le=19-23h, Ln=23-07h
+            ld_vals  = [h['value'] for h in laea_hours if 7  <= h['hour'] < 19]
+            le_vals  = [h['value'] for h in laea_hours if 19 <= h['hour'] < 23]
+            ln_vals  = [h['value'] for h in laea_hours if h['hour'] >= 23 or h['hour'] < 7]
 
             laeq   = calcular_media_db(all_vals)
             turno1 = calcular_media_db(t1_vals)
             turno2 = calcular_media_db(t2_vals)
             turno3 = calcular_media_db(t3_vals)
-            lden   = calcular_lden_db(turno2, turno3, turno1)
+            ld     = calcular_media_db(ld_vals)
+            le     = calcular_media_db(le_vals)
+            ln     = calcular_media_db(ln_vals)
+            lden   = calcular_lden_db(ld, le, ln)
 
             lcpeak_vals = [h['value'] for h in fields_day.get('LCpeak', [])]
             lafmax_vals = [h['value'] for h in fields_day.get('LAFmax', [])]
@@ -386,6 +401,9 @@ def get_calendario():
                 'turno1': round(turno1, 1) if turno1 is not None else None,
                 'turno2': round(turno2, 1) if turno2 is not None else None,
                 'turno3': round(turno3, 1) if turno3 is not None else None,
+                'ld':     round(ld,     1) if ld     is not None else None,
+                'le':     round(le,     1) if le     is not None else None,
+                'ln':     round(ln,     1) if ln     is not None else None,
                 'lden':   round(lden,   1) if lden   is not None else None,
                 'lcpeak': round(lcpeak, 1) if lcpeak is not None else None,
                 'lmax':   round(lmax,   1) if lmax   is not None else None,
@@ -394,7 +412,8 @@ def get_calendario():
             })
         else:
             result.append({'date': day_str, 'laeq': None, 'turno1': None, 'turno2': None,
-                           'turno3': None, 'lden': None, 'lcpeak': None, 'lmax': None,
+                           'turno3': None, 'ld': None, 'le': None, 'ln': None,
+                           'lden': None, 'lcpeak': None, 'lmax': None,
                            'lmin': None, 'has_data': False})
         current += timedelta(days=1)
 

@@ -99,14 +99,14 @@ function renderCalendar(dias, param) {
         if (isTurno) {
           td.classList.add('turno-cell');
           td.style.backgroundColor = dbToColor(info[param]);
-          const labels = ['T1 (Ln)','T2 (Ld)','T3 (Le)'];
+          const labels = ['T1 (00-08h)','T2 (08-16h)','T3 (16-00h)'];
           const keys   = ['turno1','turno2','turno3'];
           td.innerHTML = '<div class="turno-cell-inner">' + keys.map((k, i) => {
             const v = info[k];
             const bold = k === param ? ' style="font-weight:900"' : '';
             return `<span class="turno-row"${bold}>${labels[i]} ${v !== null ? v.toFixed(1) : '—'}</span>`;
           }).join('') + '</div>';
-          td.title = `${dateStr} — T1/Ln: ${info.turno1??'—'} / T2/Ld: ${info.turno2??'—'} / T3/Le: ${info.turno3??'—'} dB`;
+          td.title = `${dateStr} — T1: ${info.turno1??'—'} / T2: ${info.turno2??'—'} / T3: ${info.turno3??'—'} dB`;
         } else {
           const val = info[param];
           td.textContent = val.toFixed(1);
@@ -139,9 +139,10 @@ function atualizarLden(dias) {
     return 10 * Math.log10(sum / vals.length);
   }
 
-  const ldVals  = withData.filter(d => d.turno2 !== null).map(d => d.turno2);
-  const leVals  = withData.filter(d => d.turno3 !== null).map(d => d.turno3);
-  const lnVals  = withData.filter(d => d.turno1 !== null).map(d => d.turno1);
+  // Use official Ld/Le/Ln fields from backend (07-19h, 19-23h, 23-07h)
+  const ldVals = withData.filter(d => d.ld !== null && d.ld !== undefined).map(d => d.ld);
+  const leVals = withData.filter(d => d.le !== null && d.le !== undefined).map(d => d.le);
+  const lnVals = withData.filter(d => d.ln !== null && d.ln !== undefined).map(d => d.ln);
 
   const Ld = energyAvg(ldVals);
   const Le = energyAvg(leVals);
@@ -149,8 +150,9 @@ function atualizarLden(dias) {
 
   let Lden = null;
   if (Ld !== null && Le !== null && Ln !== null) {
+    // Official EU formula: 12h day + 4h evening (+5dB) + 8h night (+10dB)
     Lden = 10 * Math.log10(
-      (8 * Math.pow(10, Ld / 10) + 8 * Math.pow(10, (Le + 5) / 10) + 8 * Math.pow(10, (Ln + 10) / 10)) / 24
+      (12 * Math.pow(10, Ld / 10) + 4 * Math.pow(10, (Le + 5) / 10) + 8 * Math.pow(10, (Ln + 10) / 10)) / 24
     );
   }
 

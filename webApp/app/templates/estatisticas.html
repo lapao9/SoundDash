@@ -38,9 +38,9 @@
           <h5 class="mb-2">Parâmetro</h5>
           <select class="form-control mb-3" id="paramSelect">
             <option value="laeq">LAeq diário</option>
-            <option value="turno1">Turno 1 (Ln) — 00:00–08:00h</option>
-            <option value="turno2">Turno 2 (Ld) — 08:00–16:00h</option>
-            <option value="turno3">Turno 3 (Le) — 16:00–00:00h</option>
+            <option value="turno1">Turno 1 (00:00–08:00h)</option>
+            <option value="turno2">Turno 2 (08:00–16:00h)</option>
+            <option value="turno3">Turno 3 (16:00–00:00h)</option>
             <option value="lden">Lden</option>
             <option value="lcpeak">LCpeak (máx. diário)</option>
             <option value="lmax">LAFmax (máx. diário)</option>
@@ -91,18 +91,18 @@
           </ul>
         </div>
 
-        <!-- Tabela Lden / Ld / Le / Ln -->
+        <!-- Tabela Lden oficial -->
         <div id="ldenBox" class="mt-4 d-none">
-          <h6>Períodos Acústicos</h6>
+          <h6>Lden — Períodos Oficiais</h6>
           <ul class="list-group list-group-flush small">
             <li class="list-group-item d-flex justify-content-between">
-              <span>Ld — Dia (08–16h)</span><strong id="ldenLd">—</strong>
+              <span>Ld — Dia (07:00–19:00h)</span><strong id="ldenLd">—</strong>
             </li>
             <li class="list-group-item d-flex justify-content-between">
-              <span>Le — Entardecer (16–00h)</span><strong id="ldenLe">—</strong>
+              <span>Le — Entardecer (19:00–23:00h)</span><strong id="ldenLe">—</strong>
             </li>
             <li class="list-group-item d-flex justify-content-between">
-              <span>Ln — Noite (00–08h)</span><strong id="ldenLn">—</strong>
+              <span>Ln — Noite (23:00–07:00h)</span><strong id="ldenLn">—</strong>
             </li>
             <li class="list-group-item d-flex justify-content-between bg-light">
               <span><strong>Lden</strong></span><strong id="ldenLden" class="text-primary">—</strong>
