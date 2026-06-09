@@ -5,9 +5,7 @@ const DIAS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 let vistaAtual      = 'mensal';
 let semanalCache    = null;
 let showEventos     = false;
-let graficoChart    = null;
-let graficoTipo     = 'lines';
-let graficoCache    = null;
+let graficoChart = null;
 
 // ── Color helpers ──────────────────────────────────────────────────────────
 
@@ -184,18 +182,7 @@ function atualizarLden(dias) {
   box.classList.remove('d-none');
 }
 
-function setGraficoTipo(tipo) {
-  graficoTipo = tipo;
-  const btns = { lines: 'btnGraficoLinhas', bars: 'btnGraficoBarras', mixed: 'btnGraficoMisto' };
-  Object.entries(btns).forEach(([k, id]) => {
-    const el = document.getElementById(id);
-    el.className = k === tipo ? 'btn btn-primary btn-sm' : 'btn btn-outline-primary btn-sm';
-  });
-  if (graficoCache) renderGrafico(graficoCache);
-}
-
 function renderGrafico(dias) {
-  graficoCache = dias;
   const wrap = document.getElementById('graficoWrap');
   const withData = dias.filter(d => d.has_data && d.laeq !== null);
   if (!withData.length) { wrap.classList.add('d-none'); return; }
@@ -207,46 +194,16 @@ function renderGrafico(dias) {
 
   if (graficoChart) { graficoChart.destroy(); graficoChart = null; }
 
-  const laeqColors = laeqData.map(v => dbToColor(v) || 'hsl(120,70%,35%)');
-
-  let datasets;
-  if (graficoTipo === 'lines') {
-    datasets = [
-      {
-        type: 'line', label: 'LAeq (dB)', data: laeqData,
-        borderColor: '#2980b9', backgroundColor: 'rgba(41,128,185,0.1)',
-        pointRadius: 3, tension: 0.3, fill: false, yAxisID: 'y'
-      },
-      {
-        type: 'line', label: 'LCpeak (dB)', data: lcData,
-        borderColor: '#e74c3c', backgroundColor: 'transparent',
-        pointRadius: 3, tension: 0.3, yAxisID: 'y'
-      }
-    ];
-  } else if (graficoTipo === 'bars') {
-    datasets = [
-      {
-        type: 'bar', label: 'LAeq (dB)', data: laeqData,
-        backgroundColor: laeqColors, borderRadius: 3, yAxisID: 'y'
-      },
-      {
-        type: 'bar', label: 'LCpeak (dB)', data: lcData,
-        backgroundColor: 'rgba(231,76,60,0.6)', borderRadius: 3, yAxisID: 'y'
-      }
-    ];
-  } else {
-    datasets = [
-      {
-        type: 'bar', label: 'LAeq (dB)', data: laeqData,
-        backgroundColor: laeqColors, borderRadius: 3, yAxisID: 'y'
-      },
-      {
-        type: 'line', label: 'LCpeak (dB)', data: lcData,
-        borderColor: '#e74c3c', backgroundColor: 'transparent',
-        pointRadius: 3, tension: 0.3, yAxisID: 'y'
-      }
-    ];
-  }
+  const datasets = [
+    {
+      type: 'bar', label: 'LAeq (dB)', data: laeqData,
+      backgroundColor: 'rgba(41,128,185,0.75)', borderRadius: 3, yAxisID: 'y'
+    },
+    {
+      type: 'bar', label: 'LCpeak (dB)', data: lcData,
+      backgroundColor: 'rgba(231,76,60,0.75)', borderRadius: 3, yAxisID: 'y'
+    }
+  ];
 
   const ctx = document.getElementById('graficoCanvas').getContext('2d');
   graficoChart = new Chart(ctx, {
