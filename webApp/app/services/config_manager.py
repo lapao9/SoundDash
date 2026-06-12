@@ -208,6 +208,18 @@ class ConfigManager:
                 'erro': f'Timeout ao aguardar resposta da estação {sensor_id}. Verifique se a estação está online.'
             }), 504
     
+    def reboot_sensor(self, sensor_id):
+        """Envia comando de reboot para a estação via MQTT."""
+        if not self.client.is_connected():
+            return False, 'Não conectado ao broker MQTT'
+        topic   = f"sound/control/reboot/{sensor_id}"
+        payload = {'timestamp': datetime.now().isoformat(), 'source': 'flask_app'}
+        result  = self.client.publish(topic, json.dumps(payload), qos=1)
+        if result.rc == mqtt.MQTT_ERR_SUCCESS:
+            print(f"[ConfigManager] Reboot enviado para sensor {sensor_id}")
+            return True, 'Comando de reboot enviado'
+        return False, f'Erro MQTT: {result.rc}'
+
     def update_config(self):
         """
         Rota POST /api/parametros

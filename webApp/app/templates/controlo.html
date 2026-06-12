@@ -160,11 +160,34 @@
       </div>
 
       <!-- Botões -->
-      <div class="d-flex gap-2 mt-4">
+      <div class="d-flex gap-2 mt-4 flex-wrap">
         <button type="button" class="btn btn-primary" onclick="guardarConfiguracoes()">Guardar Configurações do Sensor</button>
+        <button type="button" class="btn btn-danger" onclick="confirmarReboot()">
+          Reiniciar Estação (Reboot)
+        </button>
         <a href="/" class="btn btn-secondary">Voltar à Página Inicial</a>
       </div>
     </form>
+  </div>
+
+  <!-- Modal de confirmação de reboot -->
+  <div class="modal fade" id="modalReboot" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title">Confirmar Reboot</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>Tens a certeza que queres reiniciar a estação <strong id="rebootSensorNome"></strong>?</p>
+          <p class="text-muted small">A estação vai desligar e voltar a ligar em 10–30 segundos. Durante esse tempo os dados não chegam ao servidor.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-danger" id="btnConfirmarReboot" onclick="executarReboot()">Reiniciar</button>
+        </div>
+      </div>
+    </div>
   </div>
 </main>
 {% endblock %}

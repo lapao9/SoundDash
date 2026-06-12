@@ -540,6 +540,19 @@ def get_sensores():
         return jsonify({'erro': str(e)}), 500
 
 
+@api_bp.route('/reboot', methods=['POST'])
+@login_required
+def reboot_sensor():
+    data      = request.get_json()
+    sensor_id = (data or {}).get('sensor_id')
+    if not sensor_id:
+        return jsonify({'success': False, 'erro': 'sensor_id obrigatório'}), 400
+    ok, msg = current_app.config_mgr.reboot_sensor(sensor_id)
+    if ok:
+        return jsonify({'success': True, 'message': msg})
+    return jsonify({'success': False, 'erro': msg}), 500
+
+
 @api_bp.route('/parametros/<sensor_id>', methods=['GET'])
 def get_parametros(sensor_id):
     return current_app.config_mgr.get_config(sensor_id)

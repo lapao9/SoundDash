@@ -26,39 +26,32 @@ import copy
 
 
 class StationConfigReceiver:
-    def __init__(self, sensor_id, config_file_path, mqtt_broker='10.64.137.6', mqtt_port=1884,
-                 mqtt_transport='tcp', mqtt_path='/mqtt'):
+    def __init__(self, sensor_id, config_file_path, mqtt_broker='10.64.137.6', mqtt_port=1884):
         """
         Inicializa o receiver de configurações
-
+        
         Args:
             sensor_id: ID do sensor (ex: "2")
             config_file_path: Caminho para o ficheiro config.json local
             mqtt_broker: Endereço do broker MQTT
             mqtt_port: Porta do broker MQTT
-            mqtt_transport: 'tcp' (local) ou 'websockets' (remoto via Nginx)
-            mqtt_path: path WebSocket (ex: '/mqtt'), ignorado em modo tcp
         """
         self.sensor_id = str(sensor_id)
         self.config_file = config_file_path
         self.mqtt_broker = mqtt_broker
         self.mqtt_port = mqtt_port
-
+        
         # Verificar se ficheiro de config existe
         if not os.path.exists(self.config_file):
             print(f"[ERRO] Ficheiro de configuração não encontrado: {self.config_file}")
             sys.exit(1)
-
+        
         # Carregar config atual
         self.current_config = self.load_config()
-
+        
         # Setup MQTT
         client_id = f"station_{self.sensor_id}_config"
-        if mqtt_transport == 'websockets':
-            self.client = mqtt.Client(client_id=client_id, clean_session=True, transport="websockets")
-            self.client.ws_set_options(path=mqtt_path)
-        else:
-            self.client = mqtt.Client(client_id=client_id, clean_session=True)
+        self.client = mqtt.Client(client_id=client_id, clean_session=True)
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
         
@@ -121,8 +114,10 @@ class StationConfigReceiver:
             # Subscrever aos tópicos deste sensor
             client.subscribe(f"sound/config/request/{self.sensor_id}")
             client.subscribe(f"sound/config/update/{self.sensor_id}")
+            client.subscribe(f"sound/control/reboot/{self.sensor_id}")
             print(f"[StationConfig] Subscrito a sound/config/request/{self.sensor_id}")
             print(f"[StationConfig] Subscrito a sound/config/update/{self.sensor_id}")
+            print(f"[StationConfig] Subscrito a sound/control/reboot/{self.sensor_id}")
         else:
             print(f"[ERRO] Falha na conexão MQTT: código {rc}")
             
@@ -143,11 +138,18 @@ class StationConfigReceiver:
         
         try:
             payload = json.loads(msg.payload.decode('utf-8'))
-            
+
+            # Reboot command (sound/control/reboot/{sensor_id})
+            if topic_parts[1] == 'control' and msg_type == 'reboot':
+                print(f"[StationConfig] Comando de reboot recebido")
+                self._send_ack('ok', 'Reboot agendado', needs_reboot=True)
+                self._schedule_restart(delay=3)
+                return
+
             if msg_type == 'request':
                 # Alguém pediu a config atual
                 self._handle_config_request(payload)
-                
+
             elif msg_type == 'update':
                 # Recebeu update de configuração
                 self._handle_config_update(payload)
@@ -361,17 +363,23 @@ class StationConfigReceiver:
     
     def start(self):
         """Inicia o receiver (blocking)"""
-        try:
-            print(f"[StationConfig] A conectar a {self.mqtt_broker}:{self.mqtt_port}...")
-            self.client.connect(self.mqtt_broker, self.mqtt_port, 60)
-            print(f"[StationConfig] Pronto para receber comandos de configuração")
-            self.client.loop_forever()
-        except KeyboardInterrupt:
-            print(f"\n[StationConfig] Interrompido pelo utilizador")
-            self.client.disconnect()
-        except Exception as e:
-            print(f"[ERRO] {e}")
-            sys.exit(1)
+        for attempt in range(15):
+            try:
+                print(f"[StationConfig] A conectar a {self.mqtt_broker}:{self.mqtt_port} (tentativa {attempt+1}/15)...")
+                self.client.connect(self.mqtt_broker, self.mqtt_port, 60)
+                print(f"[StationConfig] Pronto para receber comandos de configuração")
+                self.client.loop_forever()
+                return
+            except KeyboardInterrupt:
+                print(f"\n[StationConfig] Interrompido pelo utilizador")
+                self.client.disconnect()
+                return
+            except Exception as e:
+                print(f"[StationConfig] Falhou: {e}. A aguardar 8s...")
+                if attempt < 14:
+                    time.sleep(8)
+        print(f"[StationConfig] Não foi possível conectar após 15 tentativas.")
+        sys.exit(1)
 
 
 def main():

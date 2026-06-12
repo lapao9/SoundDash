@@ -1,6 +1,6 @@
 {
   "station": {
-    "sensor_ID": 2,
+    "sensor_ID": 100,
     "local_Info": "CampoGrandeLx",
     "local_Lat": 38.75,
     "local_Long": -9.14613,
@@ -23,7 +23,7 @@
     "session_duration": null,
     "segment_duration": 0.25,
     "percentil_duration_laxx": 900,
-    "time_csv_store": 640,
+    "time_csv_store": 320,
     "file_duration_csv": 3600
   },
   "audio_save": {
@@ -59,12 +59,10 @@
     "gpio_red": 25
   },
   "mqtt": {
-    "broker": "10.64.137.6",
+    "broker": "100.83.72.121",
     "broker2": "ISEL-LAA.isel.priv",
     "broker3": "10.63.13.39",
     "port": 1884,
-    "transport": "tcp",
-    "path": "/mqtt",
     "topic": "sound/levels"
   },
   "config_flags": {

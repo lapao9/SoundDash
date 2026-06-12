@@ -158,12 +158,9 @@ MQTT_BROKER2 = config.mqtt.broker2
 
 MQTT_PORT = config.mqtt.port
 MQTT_TOPIC = config.mqtt.topic
-MQTT_TRANSPORT = getattr(config.mqtt, 'transport', 'tcp')
-MQTT_PATH = getattr(config.mqtt, 'path', '/mqtt')
 print('MQTT_BROKER: ', MQTT_BROKER)
 print('MQTT_PORT: ', MQTT_PORT)
 print('MQTT_TOPIC: ', MQTT_TOPIC)
-print('MQTT_TRANSPORT: ', MQTT_TRANSPORT)
 
 
 #"config_flags"
@@ -2794,16 +2791,17 @@ def main():
     # -------------------------------
     if Publica_MQTT_OK:
 
-        if MQTT_TRANSPORT == 'websockets':
-            client = mqtt.Client(transport="websockets")
-            client.ws_set_options(path=MQTT_PATH)
-        else:
-            client = mqtt.Client()
-        #client2 = mqtt.Client()
+        client = mqtt.Client()
 
-        client.connect(MQTT_BROKER, MQTT_PORT, 60)
-        #client2.connect(MQTT_BROKER2, MQTT_PORT, 60)
-        
+        for _attempt in range(15):
+            try:
+                client.connect(MQTT_BROKER, MQTT_PORT, 60)
+                print(f"[MQTT] Conectado a {MQTT_BROKER}:{MQTT_PORT}")
+                break
+            except Exception as _e:
+                print(f"[MQTT] Tentativa {_attempt+1}/15 falhou: {_e}. A aguardar 8s...")
+                time.sleep(8)
+
         client.loop_start()
         #client2.loop_start()
     

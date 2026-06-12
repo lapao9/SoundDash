@@ -231,4 +231,38 @@ async function carregarSensoresControlo() {
   }
 }
 
+function confirmarReboot() {
+  const select = document.getElementById('sensorSelectControlo');
+  if (!select.value) { alert('Seleciona um sensor primeiro.'); return; }
+  document.getElementById('rebootSensorNome').textContent = select.options[select.selectedIndex].text;
+  new bootstrap.Modal(document.getElementById('modalReboot')).show();
+}
+
+async function executarReboot() {
+  const sensorId = document.getElementById('sensorSelectControlo').value;
+  const btn      = document.getElementById('btnConfirmarReboot');
+  btn.disabled   = true;
+  btn.textContent = 'A enviar...';
+
+  try {
+    const res  = await fetch('/api/reboot', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ sensor_id: sensorId })
+    });
+    const data = await res.json();
+    bootstrap.Modal.getInstance(document.getElementById('modalReboot')).hide();
+    if (data.success) {
+      alert('Comando de reboot enviado. A estação vai reiniciar em segundos.');
+    } else {
+      alert('Erro: ' + (data.erro || 'desconhecido'));
+    }
+  } catch (err) {
+    alert('Erro ao enviar reboot: ' + err.message);
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Reiniciar';
+  }
+}
+
 window.addEventListener('load', carregarSensoresControlo);
