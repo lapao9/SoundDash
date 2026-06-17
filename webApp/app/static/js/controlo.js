@@ -237,10 +237,18 @@ async function executarGuardar() {
     const response = await res.json();
     const warn = document.getElementById('cacheWarnBanner');
     if (response.success) {
+      const brokerInput = form.broker.value;
+      const isTailscale = brokerInput.startsWith('100.');
+
       warn.className = 'alert alert-warning mb-3';
       warn.classList.remove('d-none');
       document.getElementById('sensorStatus').innerHTML = '<span class="status-badge warning">A reiniciar...</span>';
-      iniciarCountdown(120);
+
+      if (isTailscale) {
+        warn.innerHTML = `<strong>⚠️ Atenção: Broker Tailscale!</strong><br>A estação vai reiniciar, mas o Tailscale pode demorar 1–2 minutos a estabelecer ligação após o boot. <br><strong>Não cliques em "↺ Atualizar" nos próximos 2–3 minutos.</strong> Quando vires a estação Online de novo, a configuração estará atualizada.`;
+      } else {
+        iniciarCountdown(120);
+      }
     } else {
       warn.className = 'alert alert-danger mb-3';
       warn.classList.remove('d-none');
