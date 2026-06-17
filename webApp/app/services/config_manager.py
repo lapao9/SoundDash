@@ -210,6 +210,10 @@ class ConfigManager:
     
     def reboot_sensor(self, sensor_id):
         """Envia comando de reboot para a estação via MQTT."""
+        max_wait, waited = 5, 0
+        while not self.client.is_connected() and waited < max_wait:
+            time.sleep(0.5)
+            waited += 0.5
         if not self.client.is_connected():
             return False, 'Não conectado ao broker MQTT'
         topic   = f"sound/control/reboot/{sensor_id}"

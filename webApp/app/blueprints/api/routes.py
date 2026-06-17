@@ -541,7 +541,6 @@ def get_sensores():
 
 
 @api_bp.route('/reboot', methods=['POST'])
-@login_required
 def reboot_sensor():
     data      = request.get_json()
     sensor_id = (data or {}).get('sensor_id')
