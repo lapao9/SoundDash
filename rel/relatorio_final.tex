@@ -454,18 +454,11 @@ A estação subscreve também \texttt{sound/config/request/\{id\}}, respondendo 
 
 Foi adicionado um mecanismo de reboot remoto que permite reiniciar fisicamente uma estação diretamente da página de Acesso Técnico da aplicação web, sem necessitar de acesso SSH. A aplicação publica no tópico \texttt{sound/control/reboot/\{id\}} com QoS~1; a estação recebe o comando, envia o ACK de confirmação e executa \texttt{sudo reboot} após 3~segundos. A página apresenta um modal de confirmação antes de enviar o comando, e um aviso visual após o envio indica que a estação ficará indisponível durante o tempo de arranque.
 
-\subsection{Restart Inteligente do Script}
+\subsection{Gestão do Reinício Após Atualização de Config}
 
-Quando a estação recebe uma atualização de configuração via \texttt{sound/config/update/\{id\}}, é necessário reiniciar o script para aplicar os novos parâmetros (broker MQTT, taxa de amostragem, caminhos de modelo, etc.). A abordagem original usava \texttt{sudo reboot} completo da Pi, o que causava problemas de \textit{timing} com o Tailscale em estações remotas.
+Quando a estação recebe e aplica uma atualização de configuração, agenda um \texttt{sudo reboot} após 5~segundos, garantindo que o ACK de confirmação é enviado à aplicação antes do sistema reiniciar. O reboot completo é necessário para garantir que todos os parâmetros (incluindo broker MQTT, taxa de amostragem e caminhos de modelo) são relidos com o novo estado do sistema operativo.
 
-A solução implementada usa \texttt{os.execv} para substituir o processo Python atual por uma nova instância de si próprio, sem reiniciar o sistema operativo:
-
-\begin{lstlisting}[style=python, caption={Restart do script sem reboot da Pi (os.execv)}]
-import os, sys
-os.execv(sys.executable, [sys.executable] + sys.argv)
-\end{lstlisting}
-
-Esta chamada substitui completamente o processo (memória, threads, streams de áudio), preservando a ligação Tailscale e o estado do sistema operativo. O novo processo lê o \texttt{config.json} atualizado e reconecta ao broker MQTT em $\approx$10~segundos, em comparação com $\approx$90~segundos de um reboot completo. O reboot físico completo é reservado para o botão explícito de ``Reiniciar Estação'' na página de Acesso Técnico.
+Do lado da aplicação web, após o envio de uma configuração com sucesso, é apresentado um temporizador de contagem decrescente de 2~minutos que desativa o botão de verificação de configuração (``↺ Atualizar''). Este mecanismo evita que o utilizador tente ler a configuração da estação durante o arranque, quando o Tailscale ainda pode não estar completamente ligado e a estação não responde ao canal MQTT. Após os 2~minutos, o botão é reativado automaticamente e o utilizador pode verificar que a nova configuração foi aplicada com sucesso.
 
 \section{Módulo de Estatísticas}
 \label{sec:stats}
@@ -659,7 +652,7 @@ Navegação por dia           & Clique no calendário mostra dados do dia  & Com
 Novos parâmetros calendário & LCpeak, LAFmax, LAFmin como opções        & Completo \\
 Conectividade remota        & Tailscale VPN + retry automático no boot  & Completo \\
 Reboot remoto               & Botão na app + tópico MQTT dedicado       & Completo \\
-Restart inteligente         & \texttt{os.execv} em vez de sudo reboot   & Completo \\
+Countdown pós-config        & Temporizador 2 min na app após envio      & Completo \\
 Mapa -- ComboBox            & Selector dinâmico de sensor               & Completo \\
 \bottomrule
 \end{tabular}
