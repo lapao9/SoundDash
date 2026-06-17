@@ -1,3 +1,29 @@
+let _rebootCountdown = null;
+
+function iniciarCountdown(segundos) {
+  const btn = document.querySelector('[onclick="carregarConfigSensor()"]') ||
+              document.querySelector('button[title*="Atualizar"]');
+  const warn = document.getElementById('cacheWarnBanner');
+  if (_rebootCountdown) clearInterval(_rebootCountdown);
+
+  let restantes = segundos;
+  function atualizar() {
+    const m = Math.floor(restantes / 60);
+    const s = String(restantes % 60).padStart(2, '0');
+    warn.innerHTML = `<strong>Pi a reiniciar.</strong> Aguarda <strong>${m}:${s}</strong> para o sistema arrancar e o Tailscale ligar antes de verificar a configuração.`;
+    if (btn) { btn.disabled = true; btn.title = `Disponível em ${m}:${s}`; }
+    restantes--;
+    if (restantes < 0) {
+      clearInterval(_rebootCountdown);
+      _rebootCountdown = null;
+      warn.innerHTML = '<strong>Pronto.</strong> Podes clicar ↺ Atualizar para verificar a nova configuração.';
+      if (btn) { btn.disabled = false; btn.title = 'Forçar leitura da configuração atual da estação'; }
+    }
+  }
+  atualizar();
+  _rebootCountdown = setInterval(atualizar, 1000);
+}
+
 async function carregarConfigSensor() {
   const select = document.getElementById('sensorSelectControlo');
   const sensorId = select.value;
@@ -211,14 +237,10 @@ async function executarGuardar() {
     const response = await res.json();
     const warn = document.getElementById('cacheWarnBanner');
     if (response.success) {
-      warn.className = 'alert alert-success mb-3';
+      warn.className = 'alert alert-warning mb-3';
       warn.classList.remove('d-none');
-      if (response.status === 'ok' || response.needs_reboot) {
-        warn.innerHTML = '<strong>Configuração enviada.</strong> A estação vai reiniciar em segundos. Aguarda 30–60s e clica <strong>↺ Atualizar</strong> para confirmar.';
-        document.getElementById('sensorStatus').innerHTML = '<span class="status-badge warning">A reiniciar...</span>';
-      } else {
-        warn.textContent = 'Configuração enviada com sucesso.';
-      }
+      document.getElementById('sensorStatus').innerHTML = '<span class="status-badge warning">A reiniciar...</span>';
+      iniciarCountdown(120);
     } else {
       warn.className = 'alert alert-danger mb-3';
       warn.classList.remove('d-none');

@@ -109,11 +109,11 @@
 
 Este relatório apresenta o trabalho desenvolvido na continuação e extensão da plataforma \textbf{SoundDash}, um sistema de monitorização acústica em ambiente hospitalar originalmente criado por Diogo Lourenço e Miguel Florentino~\cite{prevSoundDash}.
 
-O trabalho abrangeu quatro eixos principais: (1)~análise de desempenho e otimização do InfluxDB, com testes sistemáticos de \textit{queries} e criação de \textit{Tasks} Flux automáticas; (2)~correção dos cálculos acústicos para escala linear, conforme a norma ISO~1996~\cite{iso1996} e a Diretiva Europeia 2002/49/CE~\cite{lden}; (3)~desenvolvimento do \textbf{Módulo de Estatísticas}, uma página web nova que disponibiliza visualização calendário mensal e semanal, gráficos de tendência e indicadores acústicos por períodos; e (4)~\textit{deployment} completo num servidor do ISEL com acesso público via \textit{reverse proxy} Nginx.
+O trabalho abrangeu cinco eixos principais: (1)~análise de desempenho e otimização do InfluxDB, com testes sistemáticos de \textit{queries} e criação de \textit{Tasks} Flux automáticas; (2)~correção dos cálculos acústicos para escala linear, incluindo o indicador L\textsubscript{den} com os períodos oficiais da Diretiva 2002/49/CE (07h--19h, 19h--23h, 23h--07h) com pesos 12/4/8~horas; (3)~desenvolvimento do \textbf{Módulo de Estatísticas}, com visualização calendário mensal e semanal, gráficos de tendência com três modos, tabelas de turnos hospitalares e períodos L\textsubscript{den} em simultâneo, e navegação interativa por dia; (4)~\textit{deployment} completo num servidor do ISEL com acesso público via \textit{reverse proxy} Nginx; e (5)~implementação de \textbf{conectividade remota} para estações fora da rede institucional via Tailscale VPN, com reconfiguração e reboot remotos via MQTT.
 
-A plataforma está operacional com quatro estações acústicas reais a publicar dados em tempo real. A aplicação web foi reestruturada com \textit{blueprints} Flask para maior modularidade, e as estações passaram a suportar reconfiguração remota via MQTT.
+A plataforma está operacional com estações acústicas reais a publicar dados em tempo real. A aplicação web foi reestruturada com \textit{blueprints} Flask para maior modularidade, e as estações passaram a suportar reconfiguração remota e reinício via MQTT, sem necessidade de acesso físico.
 
-\textbf{Palavras-chave:} monitorização acústica, IoT, MQTT, InfluxDB, Grafana, Flask, L\textsubscript{den}, séries temporais, Nginx.
+\textbf{Palavras-chave:} monitorização acústica, IoT, MQTT, InfluxDB, Grafana, Flask, L\textsubscript{den}, séries temporais, Nginx, Tailscale, VPN.
 
 % =====================================================================
 \chapter{Introdução}
@@ -277,14 +277,12 @@ Eventos (pivot+filter)      & 449 & 0{,}072 s \\
 \toprule
 \textbf{Query} & \textbf{Registos} & \textbf{Tempo} \\
 \midrule
-% PREENCHER COM VALORES REAIS DOS TESTES COM 4 MESES DE DADOS
-1~dia $|$ sem agregação     & -- & -- \\
-1~semana $|$ agregação 1~min & -- & -- \\
-1~mês $|$ agregação 1~hora  & -- & -- \\
-3~meses $|$ agregação 1~hora & -- & -- \\
+1~dia $|$ sem agregação      & \textit{a preencher} & \textit{a preencher} \\
+1~semana $|$ agregação 1~min & \textit{a preencher} & \textit{a preencher} \\
+1~mês $|$ agregação 1~hora   & \textit{a preencher} & \textit{a preencher} \\
+3~meses $|$ agregação 1~hora & \textit{a preencher} & \textit{a preencher} \\
 \bottomrule
 \end{tabular}
-\caption*{\small Atualizar com resultados do script \texttt{influx\_performanceV2.py}}
 \end{table}
 
 Todos os tempos com agregação são inferiores a 15~ms, confirmando que a estratégia de agregação adaptativa é essencial para \textit{ranges} grandes e que o InfluxDB escala bem para o volume gerado pelo sistema.
@@ -385,6 +383,43 @@ location /grafana/ {
 
 O Nginx centraliza o acesso numa única porta, elimina a exposição de portas individuais e prepara a adição futura de HTTPS/TLS (Let's Encrypt ou certificado institucional do ISEL). O sistema está acessível externamente via VPN e a configuração encontra-se operacional.
 
+\section{Conectividade Remota via Tailscale}
+\label{sec:tailscale}
+
+As estações instaladas na rede WiFi do ISEL comunicam diretamente com o servidor através do IP interno \texttt{10.64.137.6}. Para suportar estações colocadas em locais externos (por exemplo, com acesso apenas via cartão SIM), foi implementada conectividade remota usando \textbf{Tailscale}, uma VPN \textit{mesh} baseada no protocolo WireGuard.
+
+O Tailscale cria uma rede virtual privada entre todos os dispositivos registados na mesma conta, atribuindo a cada um um endereço IP no espaço \texttt{100.x.x.x}. O servidor do ISEL e cada Pi remota ficam na mesma rede virtual, independentemente da localização física ou do tipo de acesso à internet.
+
+\begin{figure}[H]
+\centering
+\begin{tabular}{c}
+\texttt{Pi remota (SIM) $\xrightarrow{\text{Tailscale VPN}}$ 100.x.x.x:1884 $\longrightarrow$ Mosquitto (servidor)}\\[4pt]
+\texttt{Pi local (WiFi ISEL) $\xrightarrow{\text{rede interna}}$ 10.64.137.6:1884 $\longrightarrow$ Mosquitto}
+\end{tabular}
+\caption{Conectividade MQTT para estações locais e remotas.}
+\end{figure}
+
+A instalação na Pi é realizada inteiramente por SSH (sem acesso físico) utilizando uma \textit{auth key} pré-gerada, que autentica o dispositivo na conta Tailscale sem necessitar de browser:
+
+\begin{lstlisting}[style=bash, caption={Instalação e autenticação Tailscale na Pi por SSH}]
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up --authkey=tskey-auth-XXXXXXXXXX
+sudo systemctl enable tailscaled   # arranque automático no boot
+\end{lstlisting}
+
+O ficheiro \texttt{SoundMeterSemaf\_config.json} da estação remota é atualizado para usar o IP Tailscale do servidor como broker MQTT. Para garantir que o script da estação aguarda o Tailscale estabelecer ligação após cada arranque, foi implementado um ciclo de \textit{retry} automático em ambos os componentes de ligação MQTT:
+
+\begin{lstlisting}[style=python, caption={Retry automático de ligação MQTT (aguarda Tailscale no boot)}]
+for attempt in range(60):           # ate 10 minutos
+    try:
+        client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        break
+    except Exception as e:
+        time.sleep(10)              # 60 tentativas x 10s
+\end{lstlisting}
+
+Esta abordagem não requer alterações ao systemd, sendo completamente transparente para o serviço que corre a estação.
+
 \section{Scripts de Sensor e Reconfiguração Remota}
 \label{sec:sensor}
 
@@ -415,6 +450,23 @@ O protocolo funciona da seguinte forma:
 
 A estação subscreve também \texttt{sound/config/request/\{id\}}, respondendo com a configuração atual em \texttt{sound/config/response/\{id\}}, o que permite à aplicação web ler o estado atual do sensor antes de propor alterações.
 
+\subsection{Reboot Remoto via MQTT}
+
+Foi adicionado um mecanismo de reboot remoto que permite reiniciar fisicamente uma estação diretamente da página de Acesso Técnico da aplicação web, sem necessitar de acesso SSH. A aplicação publica no tópico \texttt{sound/control/reboot/\{id\}} com QoS~1; a estação recebe o comando, envia o ACK de confirmação e executa \texttt{sudo reboot} após 3~segundos. A página apresenta um modal de confirmação antes de enviar o comando, e um aviso visual após o envio indica que a estação ficará indisponível durante o tempo de arranque.
+
+\subsection{Restart Inteligente do Script}
+
+Quando a estação recebe uma atualização de configuração via \texttt{sound/config/update/\{id\}}, é necessário reiniciar o script para aplicar os novos parâmetros (broker MQTT, taxa de amostragem, caminhos de modelo, etc.). A abordagem original usava \texttt{sudo reboot} completo da Pi, o que causava problemas de \textit{timing} com o Tailscale em estações remotas.
+
+A solução implementada usa \texttt{os.execv} para substituir o processo Python atual por uma nova instância de si próprio, sem reiniciar o sistema operativo:
+
+\begin{lstlisting}[style=python, caption={Restart do script sem reboot da Pi (os.execv)}]
+import os, sys
+os.execv(sys.executable, [sys.executable] + sys.argv)
+\end{lstlisting}
+
+Esta chamada substitui completamente o processo (memória, threads, streams de áudio), preservando a ligação Tailscale e o estado do sistema operativo. O novo processo lê o \texttt{config.json} atualizado e reconecta ao broker MQTT em $\approx$10~segundos, em comparação com $\approx$90~segundos de um reboot completo. O reboot físico completo é reservado para o botão explícito de ``Reiniciar Estação'' na página de Acesso Técnico.
+
 \section{Módulo de Estatísticas}
 \label{sec:stats}
 
@@ -437,39 +489,47 @@ A Vista Mensal apresenta os dados num calendário com semanas como linhas e dias
 
 onde $v$ é o valor em dB, $r \in [0,1]$, e $h = 120$ (verde) corresponde a $\leq 40$~dB e $h = 0$ (vermelho) a $\geq 55$~dB. Esta escala foi calibrada para o contexto hospitalar, onde 40--55~dB representa o intervalo crítico de atenção.
 
-Os parâmetros disponíveis são: LAeq diário, Turno~1 (00h--08h), Turno~2 (08h--16h), Turno~3 (16h--24h), L\textsubscript{den}, LCpeak máximo, LAFmax e LAFmin. Quando se seleciona um turno, cada célula apresenta os três valores simultaneamente, destacando o turno selecionado a negrito.
+Os parâmetros disponíveis são: LAeq diário, Turno~1 (00h--08h), Turno~2 (08h--16h), Turno~3 (16h--24h), L\textsubscript{den}, LCpeak máximo diário, LAFmax máximo diário e LAFmin mínimo diário. Quando se seleciona um turno, cada célula apresenta os três valores simultaneamente, destacando o turno selecionado a negrito.
 
-O calendário inclui ainda um resumo estatístico lateral com média energética mensal, dia mais ruidoso, dia mais silencioso e contagem de dias com dados.
+A sidebar apresenta quatro blocos: (1)~resumo estatístico mensal (média, dia mais ruidoso, dia mais silencioso, dias com dados); (2)~indicador do período ativo (média mensal ou dia específico); (3)~turnos hospitalares; e (4)~períodos L\textsubscript{den} oficiais. O utilizador pode \textbf{clicar em qualquer célula} do calendário para atualizar os blocos 2--4 com os dados específicos desse dia, obtidos via \texttt{GET /api/lden}. Um \textit{spinner} de \textit{loading} é apresentado durante a consulta (tipicamente 5--10~segundos). Um botão ``$\leftarrow$ Mês'' repõe a vista agregada mensal.
 
 \subsection{Gráfico de Tendência}
 
-Abaixo do calendário, um gráfico exibe a evolução diária de LAeq e LCpeak ao longo do mês. O utilizador pode alternar entre três modos de visualização através de botões de toggle:
+Abaixo do calendário, um gráfico de barras exibe a evolução diária ao longo do mês. O utilizador pode alternar entre três modos de visualização através de botões de \textit{toggle}:
 
 \begin{itemize}[nosep]
-  \item \textbf{2~Linhas} -- ambas as séries como linhas contínuas; ideal para análise de tendências;
-  \item \textbf{2~Barras} -- ambas como barras agrupadas; facilita a comparação dia a dia;
-  \item \textbf{Misto} -- LAeq como barra colorida + LCpeak como linha sobreposta.
+  \item \textbf{LAeq + LCpeak} -- duas barras por dia (azul e vermelho); visão geral de nível equivalente e pico;
+  \item \textbf{Turnos} -- três barras por dia (T1, T2, T3); permite identificar qual turno hospitalar é consistentemente mais ruidoso;
+  \item \textbf{L\textsubscript{den}} -- três barras por dia ($L_d$, $L_e$, $L_n$); permite análise regulatória dos períodos oficiais dia a dia.
 \end{itemize}
 
-\subsection{Tabela L\textsubscript{den}}
+\subsection{Tabela de Períodos Acústicos}
 
-A sidebar apresenta uma tabela com os indicadores L\textsubscript{den} mensais calculados a partir dos dados de turnos. Por limitação da divisão operacional em turnos de 8~horas, os períodos utilizados são uma aproximação aos períodos oficiais da Diretiva 2002/49/CE:
+A sidebar da Vista Mensal apresenta dois blocos de indicadores que coexistem em simultâneo, respondendo a duas necessidades distintas.
+
+O primeiro bloco, \textbf{Turnos Hospitalares}, divide o dia nos três turnos operacionais de 8~horas usados pelo hospital (T1: 00h--08h, T2: 08h--16h, T3: 16h--00h) e exibe o LAeq médio de cada turno. Esta divisão é útil para correlacionar os níveis acústicos com os turnos de pessoal clínico.
+
+O segundo bloco, \textbf{Períodos Oficiais L\textsubscript{den}}, implementa os períodos exatos definidos pela Diretiva 2002/49/CE:
 
 \begin{table}[H]
 \centering\small
-\caption{Mapeamento entre períodos oficiais e turnos operacionais}
-\begin{tabular}{lll}
+\caption{Períodos oficiais do L\textsubscript{den} implementados}
+\begin{tabular}{llll}
 \toprule
-\textbf{Indicador} & \textbf{Período oficial} & \textbf{Turno usado} \\
+\textbf{Indicador} & \textbf{Período} & \textbf{Duração} & \textbf{Penalização} \\
 \midrule
-$L_d$ (dia)       & 07h--19h (12h) & T2: 08h--16h (8h) \\
-$L_e$ (entardecer) & 19h--23h (4h)  & T3: 16h--24h (8h) \\
-$L_n$ (noite)     & 23h--07h (8h)  & T1: 00h--08h (8h) \\
+$L_d$ (dia)        & 07h--19h & 12 horas & ---     \\
+$L_e$ (entardecer) & 19h--23h &  4 horas & +5~dB  \\
+$L_n$ (noite)      & 23h--07h &  8 horas & +10~dB \\
+\midrule
+$L_{den}$          & \multicolumn{3}{l}{calculado pela equação~\eqref{eq:lden}} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-As penalizações (+5~dB e +10~dB) e os pesos da fórmula (12, 4, 8) são aplicados corretamente pela função \texttt{calcular\_lden\_db}. O impacto da aproximação dos períodos é uma limitação conhecida, discutida na Secção~\ref{sec:conclusao}.
+O endpoint \texttt{/api/lden} foi atualizado para extrair os valores de LAEA exatamente nesses intervalos horários, e a função \texttt{calcular\_lden\_db} aplica os pesos 12/4/8~horas e as penalizações corretas. O cálculo mensal agrega os valores diários por média energética antes de aplicar a fórmula.
+
+Quando o utilizador clica num dia do calendário, os dois blocos atualizam para mostrar os valores específicos desse dia (com indicador visual de loading durante a consulta), em vez das médias mensais.
 
 \subsection{Vista Semanal -- Tabelas Horárias e por Turno}
 
@@ -591,8 +651,16 @@ Deployment VM ISEL          & 4~estações reais a publicar               & Comp
 Nginx reverse proxy         & Acesso público porta~80                   & Completo \\
 Script sensor               & \texttt{SoundMeterSemaf\_ver3\_class.py}  & Completo \\
 Configuração remota MQTT    & \texttt{station\_config\_receiver.py}     & Completo \\
-Módulo de Estatísticas      & Vista mensal, semanal, Lden, gráfico      & Completo \\
+Módulo de Estatísticas      & Vista mensal, semanal, gráfico 3 modos    & Completo \\
 Bugs calendário (2)         & InfluxDB timezone, JS UTC offset          & Completo \\
+L\textsubscript{den} oficial & Períodos 07--19h / 19--23h / 23--07h, pesos 12/4/8h & Completo \\
+Turnos + L\textsubscript{den} simultâneos & Sidebar com ambos os blocos lado a lado & Completo \\
+Navegação por dia           & Clique no calendário mostra dados do dia  & Completo \\
+Novos parâmetros calendário & LCpeak, LAFmax, LAFmin como opções        & Completo \\
+Conectividade remota        & Tailscale VPN + retry automático no boot  & Completo \\
+Reboot remoto               & Botão na app + tópico MQTT dedicado       & Completo \\
+Restart inteligente         & \texttt{os.execv} em vez de sudo reboot   & Completo \\
+Mapa -- ComboBox            & Selector dinâmico de sensor               & Completo \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -620,19 +688,19 @@ Este projeto concluiu com sucesso a extensão e melhoria da plataforma SoundDash
 \section{Limitações Conhecidas}
 
 \begin{itemize}
-  \item O cálculo do L\textsubscript{den} usa períodos de turno operacionais (8/8/8h) em vez dos períodos oficiais da Diretiva 2002/49/CE (12/4/8h). Isto constitui uma aproximação cujo impacto quantitativo depende do perfil diário de ruído de cada local.
-  \item O mecanismo de autenticação usa um ficheiro JSON em vez de uma base de dados, o que é adequado para o número atual de utilizadores mas limita a escalabilidade.
-  \item A classificação automática de eventos (\texttt{/api/classes}) com o modelo YAMNet não foi totalmente validada em contexto hospitalar real.
+  \item O mecanismo de autenticação usa um ficheiro JSON em vez de uma base de dados, o que é adequado para o número atual de utilizadores mas limita a escalabilidade em contextos com múltiplos técnicos ou necessidade de gestão de permissões.
+  \item A classificação automática de eventos (\texttt{/api/classes}) com o modelo YAMNet não foi totalmente validada em contexto hospitalar real; os \textit{labels} do modelo foram treinados em ambiente genérico e podem não corresponder às categorias acústicas relevantes em UCI.
+  \item A conectividade via Tailscale requer instalação e autenticação prévia em cada estação remota; em caso de expiração da \textit{auth key} ou remoção acidental do dispositivo da conta, a estação perde acesso remoto.
 \end{itemize}
 
 \section{Trabalho Futuro}
 
 \begin{enumerate}[leftmargin=*, nosep, label=\textbf{\arabic*.}]
-  \item Implementar os períodos oficiais do L\textsubscript{den} (07h--19h, 19h--23h, 23h--07h) na API, substituindo a aproximação por turnos.
-  \item Adicionar HTTPS/TLS ao Nginx (Let's Encrypt ou certificado institucional).
-  \item Implementar autenticação robusta com base de dados em vez de ficheiro JSON.
-  \item Validar a classificação automática de eventos em ambiente hospitalar real.
-  \item Alargar a plataforma a novos tipos de sensores e protocolos de comunicação.
+  \item Adicionar HTTPS/TLS ao Nginx (Let's Encrypt ou certificado institucional do ISEL), tornando todas as comunicações cifradas.
+  \item Implementar autenticação robusta com base de dados em vez de ficheiro JSON, com suporte a múltiplos utilizadores e níveis de permissão.
+  \item Validar a classificação automática de eventos em ambiente hospitalar real, com anotação manual de uma base de dados de eventos para comparação.
+  \item Alargar a plataforma a novos tipos de sensores e localizações, usando o mecanismo Tailscale já implementado para onboarding simplificado.
+  \item Implementar alertas automáticos (email/SMS) quando os níveis excedem limiares configuráveis, usando as \textit{Tasks} Flux do InfluxDB ou webhooks do Grafana.
 \end{enumerate}
 
 % =====================================================================

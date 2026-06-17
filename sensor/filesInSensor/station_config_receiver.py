@@ -150,7 +150,7 @@ class StationConfigReceiver:
             if topic_parts[1] == 'control' and msg_type == 'reboot':
                 print(f"[StationConfig] Comando de reboot recebido")
                 self._send_ack('ok', 'Reboot agendado', needs_reboot=True)
-                self._schedule_restart(delay=3, hard_reboot=True)
+                self._schedule_restart(delay=3)
                 return
 
             if msg_type == 'request':
@@ -228,8 +228,7 @@ class StationConfigReceiver:
                 print(f"[StationConfig]  Mudanças requerem reinício da aplicação")
                 self._send_ack('ok', 'Config updated - restart required', needs_reboot=True)
 
-                # Reinicia apenas o script (não a Pi toda) — Tailscale mantém-se ligado
-                self._schedule_restart(delay=5, hard_reboot=False)
+                self._schedule_restart(delay=5)
             #else:
             if False:
                 print(f"[StationConfig] Mudanças aplicadas (sem reinício necessário)")
@@ -312,25 +311,16 @@ class StationConfigReceiver:
 #        import threading
 #        thread = threading.Thread(target=delayed_restart, daemon=True)
 #        thread.start()
-    def _schedule_restart(self, delay=5, hard_reboot=False):
+    def _schedule_restart(self, delay=5):
         import time
         import threading
         import subprocess
-        import os
-        import sys
-        mode = "reboot completo da Pi" if hard_reboot else "reinício do script"
-        print(f"[StationConfig] {mode} agendado em {delay} segundos...")
+        print(f"[StationConfig] Reboot agendado em {delay} segundos...")
 
         def delayed_restart():
             time.sleep(delay)
-            print(f"[StationConfig] ============== A REINICIAR ({mode}) ==============")
-            if hard_reboot:
-                # Reboot completo da Pi (usado pelo botão de reboot da app)
-                subprocess.run(['sudo', 'reboot', 'now'])
-            else:
-                # Reinício apenas do script Python — Tailscale mantém-se ligado
-                # Útil para aplicar alterações de config (ex: novo broker MQTT)
-                os.execv(sys.executable, [sys.executable] + sys.argv)
+            print(f"[StationConfig] ============== A REINICIAR ==============")
+            subprocess.run(['sudo', 'reboot', 'now'])
             print(f"[StationConfig] ============== RESTART COMPLETO ===============")
             
           
