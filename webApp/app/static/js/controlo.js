@@ -15,15 +15,28 @@ async function carregarConfigSensor() {
 
     if (data.success) {
       popularFormulario(data.config);
-      const cacheInfo = data.cached ? ` (cache ${Math.round(data.cache_age_seconds)}s)` : ' (tempo real)';
-      statusBadge.innerHTML = `<span class="status-badge online">Online${cacheInfo}</span>`;
+      const age = Math.round(data.cache_age_seconds || 0);
+      const cacheInfo = data.cached ? ` (cache ${age}s)` : ' (tempo real)';
+      const badgeClass = data.cached && age > 120 ? 'status-badge warning' : 'status-badge online';
+      statusBadge.innerHTML = `<span class="${badgeClass}">Online${cacheInfo}</span>`;
+      const warn = document.getElementById('cacheWarnBanner');
+      if (data.cached && age > 120) {
+        warn.classList.remove('d-none');
+        warn.textContent = `Atenção: dados de configuração em cache (${age}s atrás). Se a estação reiniciou recentemente, aguarda até ${300 - age}s para dados atuais ou clica "Atualizar Configuração".`;
+      } else {
+        warn.classList.add('d-none');
+      }
     } else {
-      statusBadge.innerHTML = '<span class="status-badge offline">Offline</span>';
-      alert('Erro ao carregar configuração: ' + (data.erro || 'Desconhecido'));
+      statusBadge.innerHTML = '<span class="status-badge offline">A reiniciar...</span>';
+      const warn = document.getElementById('cacheWarnBanner');
+      warn.classList.remove('d-none');
+      warn.className = 'alert alert-warning mb-3';
+      warn.innerHTML = `<strong>Estação não responde.</strong> Se acabaste de enviar uma configuração ou de fazer reboot, a estação pode ainda estar a arrancar. <br>Aguarda 30–60 segundos e clica <strong>"Atualizar Configuração"</strong>.`;
     }
   } catch (err) {
     statusBadge.innerHTML = '<span class="status-badge offline">Erro</span>';
-    alert('Erro ao comunicar com o servidor: ' + err.message);
+    document.getElementById('cacheWarnBanner').textContent = 'Erro de comunicação: ' + err.message;
+    document.getElementById('cacheWarnBanner').classList.remove('d-none');
   } finally {
     spinner.style.display = 'none';
   }
@@ -253,6 +266,9 @@ async function executarReboot() {
     const data = await res.json();
     bootstrap.Modal.getInstance(document.getElementById('modalReboot')).hide();
     if (data.success) {
+      const warn = document.getElementById('cacheWarnBanner');
+      warn.classList.remove('d-none');
+      warn.textContent = 'Reboot enviado. A estação vai reiniciar em ~30s. A configuração mostrada pode estar desatualizada até 5 minutos após o arranque.';
       alert('Comando de reboot enviado. A estação vai reiniciar em segundos.');
     } else {
       alert('Erro: ' + (data.erro || 'desconhecido'));

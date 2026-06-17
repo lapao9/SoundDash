@@ -155,12 +155,24 @@ async function mostrarDia(dateStr, tdEl) {
   tdEl.classList.add('selected');
 
   const [y, m, d] = dateStr.split('-');
-  setPeriodoLabel(`Dia ${d}/${m}/${y}`, true);
+  setPeriodoLabel(`Dia ${d}/${m}/${y} — a carregar...`, true);
+
+  const spinner = '<span class="spinner-border spinner-border-sm text-secondary" role="status"></span>';
+  ['turnoT1','turnoT2','turnoT3'].forEach(id => { document.getElementById(id).innerHTML = spinner; });
+  ['ldenLd','ldenLe','ldenLn','ldenLden'].forEach(id => { document.getElementById(id).innerHTML = spinner; });
+  document.getElementById('turnosBox').classList.remove('d-none');
+  document.getElementById('ldenBox').classList.remove('d-none');
 
   try {
     const res  = await fetch(`/api/lden?start=${dateStr}T00:00:00&end=${dateStr}T23:59:59&sensor_id=${sensor}`);
     const data = await res.json();
-    if (data.error) return;
+    setPeriodoLabel(`Dia ${d}/${m}/${y}`, true);
+    if (data.error) {
+      ['turnoT1','turnoT2','turnoT3','ldenLd','ldenLe','ldenLn','ldenLden'].forEach(id => {
+        document.getElementById(id).textContent = '—';
+      });
+      return;
+    }
 
     const fmt = v => v !== null && v !== undefined ? v.toFixed(1) + ' dB' : '—';
 

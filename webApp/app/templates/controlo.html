@@ -12,6 +12,7 @@
 {% block content %}
 <main class="container my-4">
   <h2 class="page-title">Definir Parâmetros Técnicos</h2>
+  <div id="cacheWarnBanner" class="alert alert-warning d-none mb-3" role="alert"></div>
   <div class="form-section">
     <form id="configForm">
       <!-- Sensor -->
@@ -162,9 +163,8 @@
       <!-- Botões -->
       <div class="d-flex gap-2 mt-4 flex-wrap">
         <button type="button" class="btn btn-primary" onclick="guardarConfiguracoes()">Guardar Configurações do Sensor</button>
-        <button type="button" class="btn btn-danger" onclick="confirmarReboot()">
-          Reiniciar Estação (Reboot)
-        </button>
+        <button type="button" class="btn btn-outline-primary" onclick="carregarConfigSensor()">Atualizar Configuração</button>
+        <button type="button" class="btn btn-danger" onclick="confirmarReboot()">Reiniciar Estação (Reboot)</button>
         <a href="/" class="btn btn-secondary">Voltar à Página Inicial</a>
       </div>
     </form>

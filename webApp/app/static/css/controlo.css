@@ -25,6 +25,7 @@
   margin-left: 0.5rem;
 }
 
-.status-badge.online  { background-color: #28a745; color: white; }
-.status-badge.offline { background-color: #dc3545; color: white; }
-.status-badge.loading { background-color: #ffc107; color: black; }
+.status-badge.online   { background-color: #28a745; color: white; }
+.status-badge.offline  { background-color: #dc3545; color: white; }
+.status-badge.loading  { background-color: #ffc107; color: black; }
+.status-badge.warning  { background-color: #fd7e14; color: white; }
