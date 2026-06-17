@@ -162,11 +162,32 @@
 
       <!-- Botões -->
       <div class="d-flex gap-2 mt-4 flex-wrap">
-        <button type="button" class="btn btn-primary" onclick="guardarConfiguracoes()">Guardar Configurações do Sensor</button>
+        <button type="button" class="btn btn-primary" onclick="confirmarGuardar()">Guardar Configurações do Sensor</button>
         <button type="button" class="btn btn-danger" onclick="confirmarReboot()">Reiniciar Estação (Reboot)</button>
         <a href="/" class="btn btn-secondary">Voltar à Página Inicial</a>
       </div>
     </form>
+  </div>
+
+  <!-- Modal de confirmação de guardar config -->
+  <div class="modal fade" id="modalGuardar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Confirmar Envio de Configuração</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>Vais enviar uma nova configuração para a estação <strong id="guardarSensorNome"></strong>.</p>
+          <p class="text-muted small mb-1">O script da estação vai reiniciar automaticamente para aplicar as alterações.</p>
+          <p class="text-muted small">A estação ficará indisponível durante <strong>~10–20 segundos</strong>.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="button" class="btn btn-primary" id="btnConfirmarGuardar" onclick="executarGuardar()">Enviar Configuração</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Modal de confirmação de reboot -->

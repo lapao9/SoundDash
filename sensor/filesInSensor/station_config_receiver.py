@@ -150,7 +150,7 @@ class StationConfigReceiver:
             if topic_parts[1] == 'control' and msg_type == 'reboot':
                 print(f"[StationConfig] Comando de reboot recebido")
                 self._send_ack('ok', 'Reboot agendado', needs_reboot=True)
-                self._schedule_restart(delay=3)
+                self._schedule_restart(delay=3, hard_reboot=True)
                 return
 
             if msg_type == 'request':
@@ -227,9 +227,9 @@ class StationConfigReceiver:
             if True:
                 print(f"[StationConfig]  Mudanças requerem reinício da aplicação")
                 self._send_ack('ok', 'Config updated - restart required', needs_reboot=True)
-                
-                # Fazer reboot automático após 5 segundos
-                self._schedule_restart(delay=5)
+
+                # Reinicia apenas o script (não a Pi toda) — Tailscale mantém-se ligado
+                self._schedule_restart(delay=5, hard_reboot=False)
             #else:
             if False:
                 print(f"[StationConfig] Mudanças aplicadas (sem reinício necessário)")
@@ -312,55 +312,25 @@ class StationConfigReceiver:
 #        import threading
 #        thread = threading.Thread(target=delayed_restart, daemon=True)
 #        thread.start()
-    def _schedule_restart(self, delay=5):
+    def _schedule_restart(self, delay=5, hard_reboot=False):
         import time
         import threading
         import subprocess
-        print(f"[StationConfig] Reboot agendado em {delay} segundos...")
-    
+        import os
+        import sys
+        mode = "reboot completo da Pi" if hard_reboot else "reinício do script"
+        print(f"[StationConfig] {mode} agendado em {delay} segundos...")
+
         def delayed_restart():
             time.sleep(delay)
-            #print(f"[StationConfig] =============== INICIAR RESTART... ===============")
-            
-            #result = subprocess.run(
-            #    'pkill -f SoundMeterSemaf_ver3_class.py',
-            #    shell=True,
-            #    capture_output=True,
-            #    text=True
-            #)
-            #print(f"[StationConfig] pkill return code: {result.returncode}")
-            #if result.stdout:
-            #    print(f"[StationConfig] pkill stdout: {result.stdout}")
-            #if result.stderr:
-            #    print(f"[StationConfig] pkill stdout: {result.stdout}")
-            
-            
-            
-            #os.system('pkill -f SoundMeterSemaf_ver3_class.py')
-            #time.sleep(3)
-
-            subprocess.run(['sudo', 'reboot', 'now'])
-            
-            #time.sleep(2)
-            #print(f"[StationConfig] A aguardar 3 segundos")
-            #time.sleep(3)
-            
-            #print(f"[StationConfig] A arrancar o script...")
-            #try:
-            #    proc = subprocess.Popen(
-            #        ['python3','/home/laa/SoundMeterSemaf2/SoundMeterSemaf_ver3_class.py'],
-            #        cwd='/home/home/laa/SoundMeterSemaf2',
-            #        stdout=subprocess.DEVNULL,
-            #        stderr=subprocess.DEVNULL,
-            #        start_new_session=True
-            #    )
-            #    print(f"[StationConfig] Processo Arrancado com PID: {proc.pid}")
-            #except Exception as e:
-            #    print(f"[StationConfig] Erro ao arrancar processo: {e}")
-                
-            
-
-            
+            print(f"[StationConfig] ============== A REINICIAR ({mode}) ==============")
+            if hard_reboot:
+                # Reboot completo da Pi (usado pelo botão de reboot da app)
+                subprocess.run(['sudo', 'reboot', 'now'])
+            else:
+                # Reinício apenas do script Python — Tailscale mantém-se ligado
+                # Útil para aplicar alterações de config (ex: novo broker MQTT)
+                os.execv(sys.executable, [sys.executable] + sys.argv)
             print(f"[StationConfig] ============== RESTART COMPLETO ===============")
             
           

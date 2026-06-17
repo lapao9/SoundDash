@@ -125,10 +125,23 @@ function popularFormulario(config) {
   }
 }
 
-async function guardarConfiguracoes() {
+function confirmarGuardar() {
+  const form = document.forms['configForm'];
+  const select = document.getElementById('sensorSelectControlo');
+  if (!select.value) { alert('Seleciona um sensor primeiro.'); return; }
+  document.getElementById('guardarSensorNome').textContent = select.options[select.selectedIndex].text;
+  new bootstrap.Modal(document.getElementById('modalGuardar')).show();
+}
+
+async function executarGuardar() {
+  const btn = document.getElementById('btnConfirmarGuardar');
+  btn.disabled = true;
+  btn.textContent = 'A enviar...';
+  bootstrap.Modal.getInstance(document.getElementById('modalGuardar')).hide();
+
   const form = document.forms['configForm'];
   const sensorId = form.sensor_name.value;
-  if (!sensorId) { alert('Por favor selecione um sensor primeiro'); return; }
+  if (!sensorId) { btn.disabled = false; btn.textContent = 'Enviar Configuração'; return; }
 
   const gc = name => form[name]?.checked || false;
 
