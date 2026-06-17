@@ -229,6 +229,9 @@ async function executarGuardar() {
     warn.className = 'alert alert-danger mb-3';
     warn.classList.remove('d-none');
     warn.textContent = 'Erro de comunicação: ' + err.message;
+  } finally {
+    const btn = document.getElementById('btnConfirmarGuardar');
+    if (btn) { btn.disabled = false; btn.textContent = 'Enviar Configuração'; }
   }
 }
 
