@@ -196,14 +196,26 @@ async function guardarConfiguracoes() {
       body: JSON.stringify({ sensor_id: sensorId, config, checksum: null })
     });
     const response = await res.json();
+    const warn = document.getElementById('cacheWarnBanner');
     if (response.success) {
-      const needsReboot = response.needs_reboot ? ' (Reinício necessário na estação)' : '';
-      alert(`Parâmetros enviados com sucesso!${needsReboot}\n\nStatus: ${response.status}`);
+      warn.className = 'alert alert-success mb-3';
+      warn.classList.remove('d-none');
+      if (response.status === 'ok' || response.needs_reboot) {
+        warn.innerHTML = '<strong>Configuração enviada.</strong> A estação vai reiniciar em segundos. Aguarda 30–60s e clica <strong>↺ Atualizar</strong> para confirmar.';
+        document.getElementById('sensorStatus').innerHTML = '<span class="status-badge warning">A reiniciar...</span>';
+      } else {
+        warn.textContent = 'Configuração enviada com sucesso.';
+      }
     } else {
-      alert('Erro ao enviar os parâmetros: ' + (response.erro || 'Desconhecido'));
+      warn.className = 'alert alert-danger mb-3';
+      warn.classList.remove('d-none');
+      warn.textContent = 'Erro ao enviar configuração: ' + (response.erro || 'Desconhecido');
     }
   } catch (err) {
-    alert('Erro ao enviar os parâmetros: ' + err.message);
+    const warn = document.getElementById('cacheWarnBanner');
+    warn.className = 'alert alert-danger mb-3';
+    warn.classList.remove('d-none');
+    warn.textContent = 'Erro de comunicação: ' + err.message;
   }
 }
 

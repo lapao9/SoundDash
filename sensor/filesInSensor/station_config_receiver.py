@@ -370,9 +370,9 @@ class StationConfigReceiver:
     
     def start(self):
         """Inicia o receiver (blocking)"""
-        for attempt in range(15):
+        for attempt in range(60):
             try:
-                print(f"[StationConfig] A conectar a {self.mqtt_broker}:{self.mqtt_port} (tentativa {attempt+1}/15)...")
+                print(f"[StationConfig] A conectar a {self.mqtt_broker}:{self.mqtt_port} (tentativa {attempt+1}/60)...")
                 self.client.connect(self.mqtt_broker, self.mqtt_port, 60)
                 print(f"[StationConfig] Pronto para receber comandos de configuração")
                 self.client.loop_forever()
@@ -382,10 +382,10 @@ class StationConfigReceiver:
                 self.client.disconnect()
                 return
             except Exception as e:
-                print(f"[StationConfig] Falhou: {e}. A aguardar 8s...")
-                if attempt < 14:
-                    time.sleep(8)
-        print(f"[StationConfig] Não foi possível conectar após 15 tentativas.")
+                print(f"[StationConfig] Falhou: {e}. A aguardar 10s...")
+                if attempt < 59:
+                    time.sleep(10)
+        print(f"[StationConfig] Não foi possível conectar após 60 tentativas.")
         sys.exit(1)
 
 

@@ -17,7 +17,7 @@
     <form id="configForm">
       <!-- Sensor -->
       <div class="mb-4">
-        <label class="form-label">Selecionar Sensor <span id="sensorStatus"></span></label>
+        <label class="form-label">Selecionar Sensor <span id="sensorStatus"></span> <button type="button" class="btn btn-outline-secondary btn-sm ms-2" onclick="carregarConfigSensor()" title="Forçar leitura da configuração atual da estação">↺ Atualizar</button></label>
         <select class="form-control" id="sensorSelectControlo" name="sensor_name" required onchange="carregarConfigSensor()">
           <option value="" disabled selected>A carregar sensores...</option>
         </select>
@@ -163,7 +163,6 @@
       <!-- Botões -->
       <div class="d-flex gap-2 mt-4 flex-wrap">
         <button type="button" class="btn btn-primary" onclick="guardarConfiguracoes()">Guardar Configurações do Sensor</button>
-        <button type="button" class="btn btn-outline-primary" onclick="carregarConfigSensor()">Atualizar Configuração</button>
         <button type="button" class="btn btn-danger" onclick="confirmarReboot()">Reiniciar Estação (Reboot)</button>
         <a href="/" class="btn btn-secondary">Voltar à Página Inicial</a>
       </div>

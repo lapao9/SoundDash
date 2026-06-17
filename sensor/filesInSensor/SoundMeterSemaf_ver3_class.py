@@ -2793,14 +2793,14 @@ def main():
 
         client = mqtt.Client()
 
-        for _attempt in range(15):
+        for _attempt in range(60):
             try:
                 client.connect(MQTT_BROKER, MQTT_PORT, 60)
                 print(f"[MQTT] Conectado a {MQTT_BROKER}:{MQTT_PORT}")
                 break
             except Exception as _e:
-                print(f"[MQTT] Tentativa {_attempt+1}/15 falhou: {_e}. A aguardar 8s...")
-                time.sleep(8)
+                print(f"[MQTT] Tentativa {_attempt+1}/60 falhou: {_e}. A aguardar 10s...")
+                time.sleep(10)
 
         client.loop_start()
         #client2.loop_start()
