@@ -132,7 +132,51 @@ if __name__ == "__main__":
         if not csvs:
             print(f"Nenhum CSV encontrado em {caminho}")
             sys.exit(1)
-        print(f"{len(csvs)} ficheiros CSV encontrados")
+
+        # Estimar tempo de importacao
+        print(f"\n{'='*60}")
+        print(f"ESTIMATIVA DE TEMPO DE IMPORTACAO")
+        print(f"{'='*60}")
+        print(f"Ficheiros CSV encontrados: {len(csvs)}")
+
+        # Estimativa rápida: contar linhas de apenas alguns ficheiros
+        print("A estimar tamanho (contando amostra de 5 ficheiros)...")
+        sample_csvs = [csvs[0], csvs[len(csvs)//4], csvs[len(csvs)//2], csvs[3*len(csvs)//4], csvs[-1]]
+        sample_lines = []
+
+        for csv_path in sample_csvs:
+            try:
+                with open(csv_path, encoding="utf-8") as f:
+                    lines = sum(1 for _ in f) - 1
+                    sample_lines.append(lines)
+                    print(f"  {os.path.basename(csv_path)}: {lines:,} linhas")
+            except:
+                pass
+
+        if sample_lines:
+            avg_lines = sum(sample_lines) / len(sample_lines)
+            total_lines = int(avg_lines * len(csvs))
+            print(f"\nEstimativa: {avg_lines:,.0f} linhas/ficheiro")
+            print(f"Total estimado: {total_lines:,} linhas (com {len(csvs)} ficheiros)")
+
+        # Velocidade conservadora (escrita real em InfluxDB é mais lenta que processamento)
+        # Com lotes de 500 e sincronização: ~100-200 registos/segundo
+        real_speed = 150  # registos/segundo (conservador)
+
+        estimated_seconds = total_lines / real_speed
+        estimated_minutes = estimated_seconds / 60
+        estimated_hours = estimated_minutes / 60
+
+        if estimated_hours >= 1:
+            print(f"Tempo estimado: ~{estimated_hours:.1f} horas ({estimated_minutes:.0f} minutos)")
+        else:
+            print(f"Tempo estimado: ~{estimated_minutes:.1f} minutos ({estimated_seconds:.0f} segundos)")
+
+        print(f"{'='*60}")
+        print(f"\nPRIMA ENTER para prosseguir com a importacao...")
+        print(f"(Ctrl+C para cancelar)")
+        input()
+
         for i, csv_path in enumerate(csvs, 1):
             print(f"\n[{i}/{len(csvs)}] {os.path.basename(csv_path)}")
             import_csv(csv_path)
