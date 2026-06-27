@@ -11,8 +11,4 @@ webApp/benchmark/
 __pycache__/
 *.pyc
 *.pyo
-sensor/filesInSensor/
-sensor/filesInSensor/*
-sensor/filesInSensor/SoundMeterSemaf_config.json
-sensor/filesInSensor/SoundMeterSemaf_ver3_class.py
-sensor/filesInSensor/station_config_receiver.py
+

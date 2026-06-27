@@ -201,6 +201,10 @@ A natureza logarítmica implica que \textbf{operações aritméticas não podem 
 \label{eq:media_db}
 \end{equation}
 
+\begin{infobox}
+\textbf{Nota crítica:} O expoente correto na conversão dB$\to$linear é \textbf{10} (energia/potência), não 20 (amplitude). Usar o expoente 20 sobrestima sistematicamente os resultados em todos os cálculos estatísticos.
+\end{infobox}
+
 \section{Nível Sonoro Equivalente por Período}
 \label{sec:leq_periodo}
 
@@ -605,7 +609,24 @@ O protocolo de configuração assenta em dois tipos de mensagem, cujos formatos 
 
 A configuração de cada estação organiza-se em secções com campos tipados. A Tabela~\ref{tab:config_schema} apresenta as principais secções e os campos mais relevantes para efeitos de reconfiguração remota.
 
-
+\begin{table}[H]
+\centering\small
+\caption{Esquema da configuração da estação (principais secções)}
+\label{tab:config_schema}
+\begin{tabularx}{\linewidth}{llX}
+\toprule
+\textbf{Secção} & \textbf{Campos principais} & \textbf{Descrição} \\
+\midrule
+\texttt{station}     & \texttt{sensor\_ID}, \texttt{local\_Info}, lat/lon/alt & Identificação e localização \\
+\texttt{audio}       & \texttt{sample\_rate}, \texttt{channels}, \texttt{chunk\_size}, \texttt{target\_device\_name} & Parâmetros de captura áudio \\
+\texttt{mqtt}        & \texttt{broker}, \texttt{port}, \texttt{topic} & Conectividade MQTT \\
+\texttt{timing}      & \texttt{file\_duration}, \texttt{segment\_duration} & Janelas temporais \\
+\texttt{niveis}      & \texttt{cal94}, \texttt{pref}, \texttt{n\_13octave\_bands} & Calibração acústica \\
+\texttt{flags}       & \texttt{publica\_mqtt\_ok}, \texttt{save\_audiofile\_ok}, \ldots & Funcionalidades ativas \\
+\texttt{sound\_event\_detect} & \texttt{model\_path}, \texttt{classes}, \texttt{size\_event} & Classificação de eventos \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 O protocolo de atualização funciona da seguinte forma:
 
