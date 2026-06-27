@@ -120,9 +120,6 @@ A solução desenvolvida assenta numa arquitetura modular onde cada componente, 
 \textbf{Palavras-chave:} monitorização acústica, IoT, sistemas distribuídos, MQTT, InfluxDB, Grafana, Flask, L\textsubscript{den}, séries temporais, Nginx.
 
 % --- ÍNDICES ---
-\chapter*{Índices}
-\addcontentsline{toc}{chapter}{Índices}
-
 {\hypersetup{linkcolor=black}\tableofcontents}
 
 {\hypersetup{linkcolor=black}\listoffigures}
@@ -201,9 +198,6 @@ A natureza logarítmica implica que \textbf{operações aritméticas não podem 
 \label{eq:media_db}
 \end{equation}
 
-\begin{infobox}
-\textbf{Nota crítica:} O expoente correto na conversão dB$\to$linear é \textbf{10} (energia/potência), não 20 (amplitude). Usar o expoente 20 sobrestima sistematicamente os resultados em todos os cálculos estatísticos.
-\end{infobox}
 
 \section{Nível Sonoro Equivalente por Período}
 \label{sec:leq_periodo}
@@ -248,8 +242,7 @@ InfluxDB           & Base de dados de séries temporais           & \cite{influx
 Grafana            & Motor de dashboards e visualização          & \cite{grafana} \\
 Flask              & Framework web Python (servidor de aplicação) & \cite{flask} \\
 Nginx              & Servidor HTTP e \textit{reverse proxy}       & \cite{nginx} \\
-WireGuard          & Protocolo VPN para nós remotos              & \cite{wireguard} \\
-YAMNet             & Modelo de classificação de áudio            & \cite{yamnet} \\
+Tailscale          & Serviço VPN \textit{mesh} para nós remotos  & \cite{wireguard} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -265,47 +258,39 @@ Uma plataforma de monitorização distribuída pode ser descrita como um sistema
 \begin{figure}[H]
 \centering
 \begin{tikzpicture}[
-  node distance=1.3cm and 4.2cm,
-  box/.style={draw, rectangle, rounded corners=4pt,
-              minimum width=4.2cm, minimum height=0.82cm,
-              text centered, font=\small\bfseries, fill=iselblue!10},
-  sub/.style={font=\scriptsize\itshape, text=gray!70, text centered},
+  box/.style={draw, rectangle, rounded corners=5pt,
+              minimum width=4.8cm, minimum height=1.1cm,
+              align=center, fill=iselblue!10, font=\small},
   fw/.style={-{Stealth}, thick, iselblue!80},
-  cfg/.style={{Stealth}-{Stealth}, thick, dashed, orange!70}
+  cfg/.style={{Stealth}-{Stealth}, thick, dashed, orange!70},
+  lbl/.style={font=\scriptsize, text=gray!60}
 ]
 
 % Coluna esquerda: pipeline de dados
-\node[box] (sensor) {Nó de Medição};
-\node[sub, below=1pt of sensor] {sensor + computador embarcado};
+\node[box] (sensor) {\textbf{Ponto de Medição}\\[2pt]{\scriptsize\itshape\color{gray!60}Raspberry Pi}};
 
-\node[box, below=1.5cm of sensor] (broker) {Broker de Mensagens};
-\node[sub, below=1pt of broker] {middleware pub/sub};
+\node[box, below=1.6cm of sensor] (broker) {\textbf{Broker de Mensagens}\\[2pt]{\scriptsize\itshape\color{gray!60}Mosquitto MQTT}};
 
-\node[box, below=1.5cm of broker] (proc) {Processador de Dados};
-\node[sub, below=1pt of proc] {fluxo ETL};
+\node[box, below=1.6cm of broker] (proc) {\textbf{Processador de Dados}\\[2pt]{\scriptsize\itshape\color{gray!60}Node-RED}};
 
-\node[box, below=1.5cm of proc] (db) {Base de Dados};
-\node[sub, below=1pt of db] {séries temporais};
+\node[box, below=1.6cm of proc] (db) {\textbf{Base de Dados}\\[2pt]{\scriptsize\itshape\color{gray!60}InfluxDB}};
 
 % Coluna direita: camada web
-\node[box, right=4.2cm of broker] (ws) {Servidor Web};
-\node[sub, below=1pt of ws] {API REST + proxy};
+\node[box, right=4.8cm of broker] (ws) {\textbf{Servidor Web}\\[2pt]{\scriptsize\itshape\color{gray!60}Flask}};
 
-\node[box, above=1.5cm of ws] (cl) {Cliente Web};
-\node[sub, below=1pt of cl] {browser};
+\node[box, above=1.6cm of ws] (cl) {\textbf{Cliente Web}\\[2pt]{\scriptsize\itshape\color{gray!60}browser}};
 
-\node[box, below=1.5cm of ws] (dsh) {Motor de Dashboards};
-\node[sub, below=1pt of dsh] {visualização de séries};
+\node[box, below=1.6cm of ws] (dsh) {\textbf{Motor de Dashboards}\\[2pt]{\scriptsize\itshape\color{gray!60}Grafana}};
 
 % Setas: pipeline de dados
-\draw[fw] (sensor) -- node[right, font=\scriptsize]{pub} (broker);
-\draw[fw] (broker) -- node[right, font=\scriptsize]{sub} (proc);
-\draw[fw] (proc)   -- node[right, font=\scriptsize]{write} (db);
+\draw[fw] (sensor) -- node[right, lbl]{pub} (broker);
+\draw[fw] (broker) -- node[right, lbl]{sub} (proc);
+\draw[fw] (proc)   -- node[right, lbl]{write} (db);
 
 % Setas: camada web
-\draw[fw] (ws) -- node[right, font=\scriptsize]{HTTP} (cl);
-\draw[fw] (dsh) -- node[right, font=\scriptsize]{embed} (ws);
-\draw[fw] (db.east) -- ++(0.8,0) |- node[near start, below, font=\scriptsize]{query} (dsh.west);
+\draw[fw] (ws) -- node[right, lbl]{HTTP} (cl);
+\draw[fw] (dsh) -- node[right, lbl]{API REST} (ws);
+\draw[fw] (db.east) -- ++(0.8,0) |- node[near start, below, lbl]{query} (dsh.west);
 
 % Canal de configuração (bidirecional, tracejado)
 \draw[cfg] (ws.west) -- node[above, font=\scriptsize, text=orange!80]{config} (broker.east);
@@ -314,6 +299,8 @@ Uma plataforma de monitorização distribuída pode ser descrita como um sistema
 \caption{Arquitetura genérica de uma plataforma de monitorização distribuída.}
 \label{fig:arq_generica}
 \end{figure}
+
+
 
 Cada componente recebe dados de uma ou mais entradas e produz saídas consumidas pelo componente seguinte. O broker de mensagens é o único ponto de contacto entre os nós de medição e o resto do sistema, tornando os nós substituíveis sem alteração da infraestrutura central. O canal de configuração (tracejado) é bidirecional: o servidor web publica comandos de configuração no broker, que os entrega aos nós subscritos.
 
@@ -429,15 +416,15 @@ Eventos (pivot+filter)      & 449 & 0{,}072 s \\
 \toprule
 \textbf{Query} & \textbf{Registos} & \textbf{Tempo} \\
 \midrule
-1~dia $|$ sem agregação      & \textit{a preencher} & \textit{a preencher} \\
-1~semana $|$ agregação 1~min & \textit{a preencher} & \textit{a preencher} \\
-1~mês $|$ agregação 1~hora   & \textit{a preencher} & \textit{a preencher} \\
-3~meses $|$ agregação 1~hora & \textit{a preencher} & \textit{a preencher} \\
+1~dia $|$ sem agregação      & \textit{345527} & \textit{2.294s} \\
+1~semana $|$ agregação 1~min & \textit{10079} & \textit{0.074s} \\
+1~mês $|$ agregação 1~hora   & \textit{721} & \textit{0.163s} \\
+3~meses $|$ agregação 1~hora & \textit{1693} & \textit{0.467s} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Todos os tempos com agregação são inferiores a 15~ms, confirmando que a estratégia de agregação adaptativa é essencial para \textit{ranges} grandes e que o InfluxDB escala bem para o volume gerado pelo sistema.
+Todos os tempos com agregação são inferiores a 0.5s, confirmando que a estratégia de agregação adaptativa é essencial para \textit{ranges} grandes e que o InfluxDB escala bem para o volume gerado pelo sistema.
 
 \section{Correção dos Cálculos Acústicos}
 \label{sec:acustica}
@@ -522,7 +509,7 @@ location /grafana/ {
 
 O Nginx centraliza o acesso numa única porta, elimina a exposição de portas individuais e prepara a adição futura de HTTPS/TLS. O sistema está operacional e acessível externamente.
 
-\section{Suporte a Nós Remotos via VPN}
+\section{Suporte a Sensores Remotos via VPN}
 \label{sec:tailscale}
 
 A arquitetura de broker centralizado permite que os nós de medição se liguem a partir de qualquer localização com acesso à internet, desde que exista conectividade de rede com o servidor. Para nós instalados em redes externas à rede local do servidor (por exemplo, com acesso apenas via cartão SIM ou rede doméstica), é necessário estabelecer um canal seguro de nível de rede.
@@ -610,21 +597,51 @@ O protocolo de configuração assenta em dois tipos de mensagem, cujos formatos 
 A configuração de cada estação organiza-se em secções com campos tipados. A Tabela~\ref{tab:config_schema} apresenta as principais secções e os campos mais relevantes para efeitos de reconfiguração remota.
 
 \begin{table}[H]
-\centering\small
+\centering
+\small
+\renewcommand{\arraystretch}{1.4} % Espaçamento vertical
 \caption{Esquema da configuração da estação (principais secções)}
 \label{tab:config_schema}
-\begin{tabularx}{\linewidth}{llX}
-\toprule
+
+\begin{tabularx}{\linewidth}{|l|X|>{\raggedright\arraybackslash}X|}
+\hline
 \textbf{Secção} & \textbf{Campos principais} & \textbf{Descrição} \\
-\midrule
-\texttt{station}     & \texttt{sensor\_ID}, \texttt{local\_Info}, lat/lon/alt & Identificação e localização \\
-\texttt{audio}       & \texttt{sample\_rate}, \texttt{channels}, \texttt{chunk\_size}, \texttt{target\_device\_name} & Parâmetros de captura áudio \\
-\texttt{mqtt}        & \texttt{broker}, \texttt{port}, \texttt{topic} & Conectividade MQTT \\
-\texttt{timing}      & \texttt{file\_duration}, \texttt{segment\_duration} & Janelas temporais \\
-\texttt{niveis}      & \texttt{cal94}, \texttt{pref}, \texttt{n\_13octave\_bands} & Calibração acústica \\
-\texttt{flags}       & \texttt{publica\_mqtt\_ok}, \texttt{save\_audiofile\_ok}, \ldots & Funcionalidades ativas \\
-\texttt{sound\_event\_detect} & \texttt{model\_path}, \texttt{classes}, \texttt{size\_event} & Classificação de eventos \\
-\bottomrule
+\hline
+\texttt{station}
+& \texttt{sensor\_ID}, \texttt{local\_Info}, lat/lon/alt
+& Identificação e localização da estação de monitorização. \\
+\hline
+
+\texttt{audio}
+& \texttt{sample\_rate}, \texttt{channels}, \texttt{chunk\_size}, \texttt{target\_device\_name}
+& Configuração dos parâmetros de aquisição e captura de áudio. \\
+\hline
+
+\texttt{mqtt}
+& \texttt{broker}, \texttt{port}, \texttt{topic}
+& Definições de comunicação com o broker MQTT para envio de dados. \\
+\hline
+
+\texttt{timing}
+& \texttt{file\_duration}, \texttt{segment\_duration}
+& Configuração das janelas temporais utilizadas na aquisição e processamento. \\
+\hline
+
+\texttt{niveis}
+& \texttt{cal94}, \texttt{pref}, \texttt{n\_13octave\_bands}
+& Parâmetros de calibração e cálculo dos níveis acústicos. \\
+\hline
+
+\texttt{flags}
+& \texttt{publica\_mqtt\_ok}, \texttt{save\_audiofile\_ok}, \ldots
+& Ativação ou desativação das diferentes funcionalidades da estação. \\
+\hline
+
+\texttt{sound\_event\_detect}
+& \texttt{model\_path}, \texttt{classes}, \texttt{size\_event}
+& Configuração do modelo de deteção e classificação de eventos sonoros. \\
+\hline
+
 \end{tabularx}
 \end{table}
 
