@@ -168,9 +168,6 @@ O trabalho desenvolvido organizou-se em quatro eixos principais:
   \item \textbf{\textit{Deployment} e operacionalidade} -- Migrar para uma VM institucional com acesso público via \textit{reverse proxy} Nginx~\cite{nginx}, e implementar reconfiguração remota das estações acústicas via MQTT, incluindo suporte a nós em redes externas.
 \end{enumerate}
 
-% =====================================================================
-\chapter{Fundamentos e Estado da Arte}
-
 \section{Trabalhos Relacionados}
 
 A monitorização distribuída de grandezas físicas com armazenamento em séries temporais e visualização web é um problema bem estudado, com diversas abordagens tecnológicas disponíveis.
@@ -181,7 +178,14 @@ No domínio da monitorização distribuída com arquitetura semelhante à do Sou
 
 A plataforma herdada, SoundDashHosp~\cite{prevSoundDash,soundmeterhosp}, focava-se na visualização em tempo real e na deteção automática de eventos sonoros via \textit{deep learning}~\cite{yamnet}, sem módulo de análise histórica, sem mecanismos de reconfiguração remota e com cálculos acústicos incorretos. O presente trabalho parte desta base e estende-a nessas três dimensões.
 
-\section{O Decibel e a Escala Logarítmica}
+% =====================================================================
+\chapter{Fundamentos}
+
+\section{Som}
+
+A avaliação do ambiente sonoro depende da compreensão de conceitos-chave da acústica e das métricas normalizadas para a medição de ruído.
+
+\subsection{O Decibel e a Escala Logarítmica}
 
 O nível de pressão sonora $L_p$ é definido como:
 \begin{equation}
@@ -199,7 +203,41 @@ A natureza logarítmica implica que \textbf{operações aritméticas não podem 
 \end{equation}
 
 
-\section{Nível Sonoro Equivalente por Período}
+\subsection{Níveis Sonoros}
+
+Em contextos de medição acústica, é importante ter referências dos valores típicos de pressão sonora em diversos ambientes e atividades. A Tabela~\ref{tab:niveis_sonoros} apresenta exemplos de níveis sonoros de referência, úteis para enquadrar as medições em ambiente hospitalar.
+
+\begin{table}[H]
+\centering\small
+\caption{Níveis sonoros de referência em diferentes ambientes}
+\label{tab:niveis_sonoros}
+\begin{tabular}{ll}
+\toprule
+\textbf{Ambiente / Atividade} & \textbf{Nível Sonoro (dB(A))} \\
+\midrule
+Limiar de audição humana & 0 dB \\
+Sussurro (~1 metro) & 30 dB \\
+Conversa normal (~1 metro) & 60 dB \\
+Tráfego urbano moderado & 70 dB \\
+Escritório típico & 50--60 dB \\
+Sala de repouso hospitalar & 35--45 dB \\
+Alarme de monitor médico & 70--80 dB \\
+Limiar de dor humano & 120 dB \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Em ambientes hospitalares, a Organização Mundial de Saúde recomenda que o nível sonoro equivalente não exceda 35~dB(A) durante o período diurno e 30~dB(A) durante a noite. Estes valores refletem a importância do repouso e da recuperação do doente, sendo frequentemente excedidos em contextos reais de hospitais activos.
+
+\subsection{Filtros de Ponderação}
+
+O ouvido humano não percepciona todas as frequências com igual sensibilidade: sons de baixa frequência (ex:~abaixo de 100~Hz) e de muito alta frequência (ex:~acima de 10~kHz) são percepcionados com menor intensidade. As \textbf{curvas de ponderação} ajustam os níveis de pressão sonora medidos para aproximarem a resposta instrumental à perceção humana.
+
+A ponderação \textbf{A} (em dB(A)) é a mais utilizada em regulamentação ambiental e segurança ocupacional, atenuando significativamente as frequências abaixo de ~500 Hz e acima de ~4 kHz. Por isso, o indicador L\textsubscript{AeqT} (nível sonoro equivalente ponderado A) é uma métrica standard para avaliar ruído em ambientes urbanos, industriais e hospitalares.
+
+A ponderação \textbf{C} (em dB(C)) é uma curva plana que não atenua frequências baixas. O indicador L\textsubscript{Cpeak}, que mede o pico máximo ponderado em C, é utilizado para detectar eventos impulsivos (ex:~queda de um objeto, porta batida) que podem ser prejudiciais mesmo que breves.
+
+\subsection{Nível Sonoro Equivalente por Período}
 \label{sec:leq_periodo}
 
 A avaliação do ambiente sonoro raramente se limita a um único valor médio para o dia completo. Em contextos com dinâmicas temporais bem definidas,  hospitais, fábricas ou aeroportos,  divide-se o dia em \textbf{períodos} ou \textbf{turnos} e calcula-se o nível sonoro equivalente de cada um. Para um período $T$ com $n_T$ amostras, o nível equivalente é:
@@ -211,7 +249,7 @@ L_{eq,T} = 10 \cdot \log_{10}\!\left(\frac{1}{n_T}\sum_{i \in T} 10^{L_i/10}\rig
 
 Esta formulação é uma instância da equação~\eqref{eq:media_db} restrita ao intervalo $T$. Aplica-se tanto a turnos operacionais (ex:~T1:~00h--08h, T2:~08h--16h, T3:~16h--00h) como aos períodos oficiais da Diretiva 2002/49/CE,  o indicador L\textsubscript{den} (Secção~\ref{sec:lden}) é precisamente uma combinação ponderada de três instâncias de $L_{eq,T}$ com penalizações adicionais por sensibilidade do período.
 
-\section{O Indicador L\textsubscript{den}}
+\subsection{O Indicador L\textsubscript{den}}
 \label{sec:lden}
 
 O L\textsubscript{den} (\textit{Level Day-Evening-Night}), definido pela Diretiva Europeia 2002/49/CE~\cite{lden}, pondera o ruído por período horário com penalizações para os períodos mais sensíveis:
@@ -248,7 +286,20 @@ Tailscale          & Serviço VPN \textit{mesh} para nós remotos  & \cite{wireg
 \end{table}
 
 % =====================================================================
-\chapter{Plataforma}
+\chapter{Desenvolvimento}
+
+\section{Metodologia}
+\label{sec:metodologia}
+
+O desenvolvimento do trabalho partiu de uma plataforma herdada já funcional, o SoundDashHosp, e seguiu uma abordagem iterativa de melhoria e extensão. A metodologia aplicada assentou em três pilares:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Análise e diagnóstico} -- Identificação detalhada das limitações da plataforma original: erros matemáticos nos cálculos acústicos, falta de mecanismos de configuração remota e ausência de análise histórica estruturada.
+
+  \item \textbf{Desenvolvimento modular} -- Implementação de correções e novas funcionalidades em componentes independentes (backend REST, tasks de processamento em Flux, interface web), permitindo testes unitários e integração gradual.
+
+  \item \textbf{Validação com dados reais} -- Utilização contínua de dados recolhidos no ambiente hospitalar para verificar a correção dos algoritmos, a performance das queries e a usabilidade da interface, minimizando divergências entre especificação e operacionalidade final.
+\end{enumerate}
 
 \section{Arquitetura Genérica}
 \label{sec:arq_generica}
@@ -433,7 +484,7 @@ Foram adicionadas ao módulo \texttt{services/acoustics.py} funções reutilizá
 
 \begin{lstlisting}[style=python, caption={Funções de cálculo acústico correto (acoustics.py)}]
 def db_to_linear(db_value: float) -> float:
-    return 10 ** (db_value / 10.0)          # expoente 10, nao 20
+    return 10 ** (db_value / 10.0)
 
 def linear_to_db(linear_value: float) -> float:
     if linear_value <= 0:
@@ -817,6 +868,20 @@ O ambiente hospitalar constitui um dos contextos mais exigentes para a monitoriz
 A estrutura operacional hospitalar em três turnos de oito horas,  Turno~1 (00h--08h, noturno), Turno~2 (08h--16h, diurno), Turno~3 (16h--00h, tarde/noite),  define os períodos naturais de análise acústica. O Turno~1 é tipicamente o mais silencioso em termos de nível médio, mas os picos de ruído neste período têm maior impacto nos doentes. O Turno~2 regista os níveis mais elevados, associados a admissões, procedimentos clínicos e visitas. O Turno~3 apresenta uma transição entre os dois. Esta segmentação complementa a análise regulatória pelo indicador L\textsubscript{den} (Secção~\ref{sec:lden}), que penaliza os períodos de maior sensibilidade.
 
 A plataforma SoundDash foi implantada no ISEL como instância de validação, com quatro estações acústicas a funcionar em condições reais de utilização. O presente capítulo documenta os resultados obtidos neste contexto.
+
+\section{Ambiente em Cidade}
+
+Embora o caso de estudo principal se centre no contexto hospitalar, a plataforma SoundDash foi concebida com generalizabilidade. A adaptação a ambientes urbanos é direta, uma vez que os mesmos componentes e algoritmos acústicos aplicam-se indiscriminadamente.
+
+Em contextos de monitorização urbana e ambiental, a Organização Mundial da Saúde~\cite{oms2018} recomenda que o nível sonoro não exceda 55~dB(A) durante o dia, valor que frequentemente é ultrapassado em zonas de intenso tráfego. A norma europeia ISO~1996 e a Diretiva 2002/49/CE~\cite{lden} estabelecem a obrigatoriedade de mapeamento acústico estratégico em aglomerados urbanos com mais de 100\,000 habitantes.
+
+A principal diferença relativamente ao ambiente hospitalar situa-se na granularidade temporal e no enquadramento regulatório:
+\begin{itemize}[nosep]
+  \item Em hospitais, a análise com 3~turnos reflete a dinâmica operacional interna;
+  \item Em cidades, o indicador L\textsubscript{den} (com períodos diurno, tarde e noturno definidos pela Diretiva europeia) é obrigatório para relatório a autoridades ambientais.
+\end{itemize}
+
+A plataforma SoundDash suporta ambos os esquemas de períodos através da configuração dinâmica, sem necessidade de alterações de código. Deste modo, demonstra a sua aplicabilidade a múltiplos contextos de monitorização acústica contínua.
 
 \section{Operacionalidade do Sistema}
 
