@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request
 from flask_login import login_required, current_user
 from app.services.system_config import load_system_config
 
@@ -6,7 +6,12 @@ pages_bp = Blueprint('pages', __name__)
 
 
 def _grafana_url():
-    return load_system_config().get('grafana_url', '')
+    config = load_system_config()
+    host = request.host.split(':')[0]
+
+    if host.startswith('100.'):
+        return config.get('grafana_url_tailscale', config.get('grafana_url', ''))
+    return config.get('grafana_url', '')
 
 
 @pages_bp.route('/')

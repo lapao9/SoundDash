@@ -1,3 +1,4 @@
 {
-  "grafana_url": "http://10.64.137.6/grafana"
+  "grafana_url": "http://10.64.137.6/grafana",
+  "grafana_url_tailscale": "http://100.83.72.121/grafana"
 }
