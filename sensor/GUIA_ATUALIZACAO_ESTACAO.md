@@ -1,4 +1,5 @@
 # Guia de Atualização das Estações de Monitorização
+
 ## Suporte a Tailscale + Arranque Automático Robusto
 
 ---
@@ -54,14 +55,15 @@ scp sensor/filesInSensor/SoundMeterSemaf_ver3_class.py  laa@<IP_PI>:/home/laa/So
 scp sensor/filesInSensor/station_config_receiver.py      laa@<IP_PI>:/home/laa/SoundMeterSemaf2/
 ```
 
-
 ### O que mudou nos ficheiros
 
 **`SoundMeterSemaf_ver3_class.py`**
+
 - O `StationConfigReceiver` passa a ler o broker do `config.json` em vez de ter o IP hardcoded — alterar o `config.json` é suficiente, sem tocar no código
 - A ligação MQTT principal tem **retry automático** (até 15 tentativas × 8 segundos ≈ 2 minutos) — o script aguarda que o Tailscale esteja ligado antes de conectar, **sem precisar de alterar o systemd**
 
 **`station_config_receiver.py`**
+
 - A ligação MQTT tem **retry automático** igual ao script principal
 - Subscreve ao tópico `sound/control/reboot/{sensor_id}` — aceita comandos de reboot remotos enviados pela app web (página Acesso Técnico)
 
@@ -112,6 +114,7 @@ python3 SoundMeterSemaf_ver3_class.py
 ```
 
 Deve aparecer no terminal algo como:
+
 ```
 [MQTT] Tentativa 1/15...
 [MQTT] Conectado a 100.X.X.X:1884
@@ -152,13 +155,13 @@ mosquitto_sub -h localhost -p 1884 -t "sound/levels" -C 1
 
 ## Resolução de Problemas
 
-| Sintoma | Causa provável | Solução |
-|---|---|---|
-| Script não arranca no boot | Tailscale ainda não ligou quando o serviço iniciou | Normal — o retry aguarda até 2 min automaticamente |
-| `ping 100.X.X.X` não responde | Tailscale não está ligado | `sudo tailscale up --authkey=...` |
-| `mosquitto_pub` falha | Mosquitto não está a correr no servidor | Reiniciar o serviço Mosquitto no servidor |
-| Dados não chegam ao InfluxDB | IP Tailscale errado no config.json | Confirmar IP em [login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines) |
-| Script crasha imediatamente | Erro no config.json | `python3 SoundMeterSemaf_ver3_class.py` manualmente para ver o erro |
+| Sintoma                          | Causa provável                                      | Solução                                                                                    |
+| -------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Script não arranca no boot      | Tailscale ainda não ligou quando o serviço iniciou | Normal — o retry aguarda até 2 min automaticamente                                         |
+| `ping 100.X.X.X` não responde | Tailscale não está ligado                          | `sudo tailscale up --authkey=...`                                                          |
+| `mosquitto_pub` falha          | Mosquitto não está a correr no servidor            | Reiniciar o serviço Mosquitto no servidor                                                   |
+| Dados não chegam ao InfluxDB    | IP Tailscale errado no config.json                   | Confirmar IP em[login.tailscale.com/admin/machines](https://login.tailscale.com/admin/machines) |
+| Script crasha imediatamente      | Erro no config.json                                  | `python3 SoundMeterSemaf_ver3_class.py` manualmente para ver o erro                        |
 
 ---
 

@@ -111,13 +111,13 @@
 \chapter*{Resumo}
 \addcontentsline{toc}{chapter}{Resumo}
 
-A monitorização acústica contínua e distribuída de ambientes sensíveis constitui um desafio técnico com aplicação em múltiplos domínios: hospitais, estabelecimentos de ensino, escritórios e zonas urbanas. A recolha de dados em tempo real a partir de vários nós geográficos, o seu armazenamento escalável e a sua análise histórica por utilizadores não técnicos exigem uma arquitetura distribuída onde cada componente possa evoluir de forma independente. A plataforma \textbf{SoundDash}, originalmente desenvolvida como sistema de monitorização acústica para ambiente hospitalar, constitui a base de trabalho deste projeto.
+A exposição contínua ao ruído é um dos principais fatores de degradação da qualidade de vida nas sociedades modernas, afetando a saúde física e o bem-estar psicológico. Níveis sonoros elevados estão associados a distúrbios do sono, aumento do stress, dificuldades de concentração e maior risco de doenças cardiovasculares. Em ambientes sensíveis, como hospitais ou zonas residenciais, estes efeitos tornam-se particularmente críticos, tornando essencial a monitorização rigorosa do ambiente acústico para identificar padrões de ruído e apoiar a implementação de medidas de mitigação.
 
-Este projeto teve como objetivo estender e melhorar a plataforma SoundDash, com quatro eixos principais: correção dos algoritmos de cálculo acústico para escala linear, em conformidade com a norma ISO~1996 e a Diretiva 2002/49/CE; desenvolvimento de um módulo completo de análise estatística histórica ausente na versão original; implementação de mecanismos de reconfiguração e reboot remotos das estações via MQTT; e suporte a nós de medição instalados em redes externas à rede local do servidor.
+A monitorização acústica em contínuo constitui um desafio técnico com aplicabilidade em diversos domínios, desde complexos hospitalares a zonas urbanas. A recolha de dados em tempo real a partir de múltiplos locais, o seu armazenamento escalável e a disponibilização de análises históricas a utilizadores não técnicos requerem uma arquitetura distribuída cujos componentes operem de forma independente. A plataforma \textbf{SoundDash}, originalmente desenvolvida para monitorização acústica de ambientes hospitalares, constitui a base de trabalho deste projeto.
 
-A solução desenvolvida assenta numa arquitetura modular onde cada componente,  nós de medição, broker de mensagens, processador de dados, base de dados de séries temporais, motor de dashboards e servidor web,  desempenha um papel independente e pode ser substituído por equivalentes. A plataforma está operacional com quatro estações acústicas reais, e o módulo de estatísticas introduzido permite análise de padrões a longo prazo através de vistas calendário mensal e semanal, gráficos de tendência com três modos e cálculo rigoroso do indicador L\textsubscript{den}. O Capítulo~4 apresenta a validação da plataforma num caso de estudo hospitalar concreto.
+Este projeto teve como objetivo estender e otimizar a plataforma SoundDash em quatro eixos principais: otimização dos algoritmos de cálculo acústico em conformidade com a norma ISO~1996 e a Diretiva 2002/49/CE; conceção e implementação de um processo de análise estatística histórica; implementação de mecanismos de reconfiguração e reinício remotos das estações de monitorização acústica via protocolo MQTT; e integração de estações externas à infraestrutura principal do sistema. A arquitetura proposta isola as responsabilidades de cada componente: estações de monitorização, broker de mensagens, processador de dados, base de dados de séries temporais, motor de visualização e servidor web. O sistema está operacional, integrando diversas estações reais. O processamento estatístico implementado viabiliza a estimação dos indicadores L\textsubscript{den} e L\textsubscript{T} (por período), permitindo a identificação de padrões a longo prazo através de calendários dinâmicos e gráficos de tendência parametrizáveis. A exequibilidade e eficácia da solução foram comprovadas num caso de estudo real em contexto de ruído ambiental.
 
-\textbf{Palavras-chave:} monitorização acústica, IoT, sistemas distribuídos, MQTT, InfluxDB, Grafana, Flask, L\textsubscript{den}, séries temporais, Nginx.
+\textbf{Palavras-chave:} monitorização acústica, ruído ambiental, saúde pública, IoT, arquitetura distribuída, MQTT, InfluxDB, Grafana, Flask, L\textsubscript{den}, séries temporais, Nginx.
 
 % --- ÍNDICES ---
 {\hypersetup{linkcolor=black}\tableofcontents}
@@ -134,9 +134,11 @@ A solução desenvolvida assenta numa arquitetura modular onde cada componente, 
 
 \section{Enquadramento e Motivação}
 
-A recolha contínua de grandezas ambientais em ambientes distribuídos,  acústicas, de qualidade do ar, térmicas,  constitui um domínio ativo de desenvolvimento em sistemas IoT. O ruído é particularmente relevante em ambientes sensíveis: em hospitais, a Organização Mundial de Saúde recomenda níveis máximos de 35~dB(A) durante o período diurno e 30~dB(A) durante a noite~\cite{oms2018}, valores frequentemente excedidos em contexto real; em escritórios e escolas, o ruído excessivo prejudica a concentração e o desempenho cognitivo; em zonas urbanas, constitui um indicador regulatório obrigatório.
+A exposição contínua ao ruído constitui um dos principais fatores de degradação da qualidade de vida nas sociedades modernas. Para além de interferências no bem-estar geral, a investigação epidemiológica demonstra impactos significativos na saúde: níveis sonoros elevados provocam distúrbios do sono com impacto na recuperação física, aumentam o stresse fisiológico e psicológico, prejudicam a concentração e o desempenho cognitivo, e elevam o risco de doenças cardiovasculares, particularmente em exposições prolongadas.
 
-A norma ISO~1996~\cite{iso1996} e o indicador L\textsubscript{den}~\cite{lden} constituem as referências normativas para avaliação do ambiente sonoro, com penalizações de +5~dB para o período da tarde e +10~dB para o período noturno. A sua aplicação exige sistemas de medição contínua, armazenamento a longo prazo e ferramentas de análise acessíveis a utilizadores não técnicos,  requisitos que motivam o desenvolvimento de plataformas distribuídas de código aberto e fácil implantação.
+Em ambientes sensíveis como hospitais, a Organização Mundial de Saúde~\cite{oms2018} recomenda que o nível sonoro equivalente não exceda 35~dB(A) durante o período diurno e 30~dB(A) durante a noite. Estes valores reflectem a importância crítica do repouso e da recuperação; contudo, estudos de monitorização contínua revelam que estas recomendações são sistematicamente excedidas em contexto real. Em zonas urbanas e residenciais, a exposição ao ruído ambiental tornou-se um indicador de saúde pública regulado pela legislação europeia, com limites obrigatórios de monitorização em aglomerados urbanos.
+
+A avaliação rigorosa do ambiente acústico exige sistemas de medição contínua, armazenamento escalável de dados a longo prazo e ferramentas de análise acessíveis a utilizadores não técnicos. A norma ISO~1996~\cite{iso1996} e o indicador L\textsubscript{den}~\cite{lden}, definido pela Diretiva 2002/49/CE~\cite{lden}, constituem as referências normativas para esta avaliação, com penalizações de +5~dB para o período da tarde e +10~dB para o período noturno, refletindo a maior sensibilidade a ruído durante os períodos de repouso. A implementação prática destes requisitos exige plataformas distribuídas de código aberto com componentes independentes e facilmente extensíveis.
 
 \section{Plataforma Herdada}
 
@@ -156,16 +158,16 @@ Durante a análise inicial, identificaram-se as seguintes limitações relevante
 
 \section{Objetivos}
 
-O trabalho desenvolvido organizou-se em quatro eixos principais:
+O projeto teve como objetivo estender e otimizar a plataforma SoundDash em quatro eixos principais:
 
 \begin{enumerate}[leftmargin=*, label=\textbf{\arabic*.}]
-  \item \textbf{Desempenho e robustez da infraestrutura} -- Avaliar o InfluxDB sob diferentes volumes e tipos de \textit{queries}; criar \textit{Tasks} Flux automáticas para agregação e cálculo contínuo; e testar o sistema com múltiplas estações em simultâneo.
+  \item \textbf{Otimização dos algoritmos de cálculo acústico} -- Garantir que todas as médias, percentis e indicadores acústicos (LAeq, LCpeak, L\textsubscript{den}) são calculados em escala linear, em conformidade rigorosa com a norma ISO~1996 e a Diretiva 2002/49/CE da União Europeia.
 
-  \item \textbf{Correção dos algoritmos acústicos} -- Garantir que todas as médias, percentis e o indicador L\textsubscript{den} são calculados em escala linear, em conformidade com a norma ISO~1996 e a Diretiva 2002/49/CE.
+  \item \textbf{Conceção e implementação de análise estatística histórica} -- Desenvolver um módulo completo de análise de padrões a longo prazo, ausente na plataforma original, com visualizações dinâmicas (calendário mensal e semanal) e gráficos de tendência parametrizáveis.
 
-  \item \textbf{Módulo de Estatísticas} -- Desenvolver uma página de estatísticas de longo prazo com visualização calendário mensal e semanal, gráficos de tendência e tabela L\textsubscript{den}, completamente ausente na plataforma original.
+  \item \textbf{Mecanismos de reconfiguração e reinício remotos via MQTT} -- Implementar um protocolo formal de reconfiguração remota das estações de monitorização acústica, com validação por \textit{checksum} e capacidade de reinício controlado, eliminando a necessidade de acesso físico.
 
-  \item \textbf{\textit{Deployment} e operacionalidade} -- Migrar para uma VM institucional com acesso público via \textit{reverse proxy} Nginx~\cite{nginx}, e implementar reconfiguração remota das estações acústicas via MQTT, incluindo suporte a nós em redes externas.
+  \item \textbf{Integração de estações externas à infraestrutura principal} -- Estender o suporte para nós de medição instalados em redes externas ao servidor, utilizando VPN de malha para garantir conectividade segura e fiável.
 \end{enumerate}
 
 \section{Trabalhos Relacionados}
@@ -353,16 +355,18 @@ Uma plataforma de monitorização distribuída pode ser descrita como um sistema
 
 
 
-Cada componente recebe dados de uma ou mais entradas e produz saídas consumidas pelo componente seguinte. O broker de mensagens é o único ponto de contacto entre os nós de medição e o resto do sistema, tornando os nós substituíveis sem alteração da infraestrutura central. O canal de configuração (tracejado) é bidirecional: o servidor web publica comandos de configuração no broker, que os entrega aos nós subscritos.
+A arquitetura proposta isola rigorosamente as responsabilidades de cada componente, permitindo que operem de forma completamente independente com interfaces bem definidas. Cada componente recebe dados de uma ou mais entradas e produz saídas consumidas pelo componente seguinte, sem conhecer a implementação interna dos outros. O broker de mensagens é o único ponto de contacto entre os nós de medição e o resto do sistema, tornando os nós substituíveis sem qualquer alteração da infraestrutura central ou das estações já instaladas. O canal de configuração (tracejado) é bidirecional: o servidor web publica comandos de configuração no broker, que os entrega aos nós subscritos, mantendo a dinâmica de isolamento.
 
-As alternativas típicas para cada componente são:
+Os componentes principais da arquitetura genérica são: (1)~\textbf{Estações de monitorização} -- nós geográficos distribuídos que capturam e publicam dados acústicos; (2)~\textbf{Broker de mensagens} -- orquestrador central de comunicação entre nós e sistema; (3)~\textbf{Processador de dados} -- transforma e enriquece o fluxo de dados em tempo real; (4)~\textbf{Base de dados de séries temporais} -- armazena dados com escalabilidade e performance; (5)~\textbf{Motor de visualização} -- gera gráficos e dashboards dinâmicos; (6)~\textbf{Servidor web} -- disponibiliza análises e controlo a utilizadores não técnicos.
+
+As alternativas tecnológicas para cada componente são:
 
 \begin{itemize}[nosep]
-  \item \textbf{Nó de medição}: Raspberry Pi, Arduino + ESP32, sensor comercial com cliente MQTT;
-  \item \textbf{Broker}: Mosquitto, HiveMQ, AWS IoT Core, EMQX;
-  \item \textbf{Processador}: Node-RED, Apache Kafka Streams, script Python;
+  \item \textbf{Estações de monitorização}: Raspberry Pi, Arduino + ESP32, sensor comercial com cliente MQTT;
+  \item \textbf{Broker de mensagens}: Mosquitto, HiveMQ, AWS IoT Core, EMQX;
+  \item \textbf{Processador de dados}: Node-RED, Apache Kafka Streams, script Python;
   \item \textbf{Base de dados}: InfluxDB, TimescaleDB, Prometheus, QuestDB;
-  \item \textbf{Dashboards}: Grafana, Kibana, Metabase;
+  \item \textbf{Motor de visualização}: Grafana, Kibana, Metabase;
   \item \textbf{Servidor web}: Flask, Django, FastAPI, Express.
 \end{itemize}
 
@@ -857,17 +861,19 @@ const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0
 \end{lstlisting}
 
 % =====================================================================
-\chapter{Caso de Estudo: Ambiente Hospitalar}
+\chapter{Caso de Estudo: Validação em Contexto de Ruído Ambiental}
 \label{cap:casodeestudo}
 
-\section{Enquadramento}
+A validação prática da plataforma SoundDash foi realizada através de um caso de estudo implementado em ambiente real, integrando tanto contextos hospitalares como urbanos. O objetivo foi demonstrar a exequibilidade e eficácia da solução proposta em condições reais de operação, validando a implementação dos quatro eixos principais do projeto: rigor acústico, análise estatística, reconfiguração remota e integração de estações externas.
+
+\section{Ambiente Hospitalar}
 \label{sec:hospital_enquadramento}
 
 O ambiente hospitalar constitui um dos contextos mais exigentes para a monitorização acústica contínua. A Organização Mundial de Saúde~\cite{oms2018} recomenda níveis máximos de 35~dB(A) durante o dia e 30~dB(A) durante a noite nas enfermarias,  valores que estudos de monitorização contínua revelam ser sistematicamente excedidos: medições em hospitais europeus registam médias noturnas entre 45~dB e 60~dB~\cite{dkhospnoise}, muito acima do recomendado. O ruído hospitalar excessivo prejudica a recuperação dos doentes, interfere com a comunicação clínica e eleva os níveis de stresse nos profissionais de saúde.
 
 A estrutura operacional hospitalar em três turnos de oito horas,  Turno~1 (00h--08h, noturno), Turno~2 (08h--16h, diurno), Turno~3 (16h--00h, tarde/noite),  define os períodos naturais de análise acústica. O Turno~1 é tipicamente o mais silencioso em termos de nível médio, mas os picos de ruído neste período têm maior impacto nos doentes. O Turno~2 regista os níveis mais elevados, associados a admissões, procedimentos clínicos e visitas. O Turno~3 apresenta uma transição entre os dois. Esta segmentação complementa a análise regulatória pelo indicador L\textsubscript{den} (Secção~\ref{sec:lden}), que penaliza os períodos de maior sensibilidade.
 
-A plataforma SoundDash foi implantada no ISEL como instância de validação, com quatro estações acústicas a funcionar em condições reais de utilização. O presente capítulo documenta os resultados obtidos neste contexto.
+A plataforma SoundDash foi implantada no ISEL como instância de validação, com quatro estações acústicas a funcionar em condições reais de utilização.
 
 \section{Ambiente em Cidade}
 
@@ -935,6 +941,10 @@ As figuras seguintes apresentam o módulo de estatísticas em operação com dad
 \end{figure}
 
 A vista semanal (Figura~\ref{fig:stats_semanal}) permite identificar visualmente os padrões horários ao longo da semana: os períodos noturnos (00h--08h) surgem com células mais escuras (valores mais baixos) e os períodos de maior atividade destacam-se pela coloração progressivamente mais quente. Esta leitura imediata é particularmente relevante em contexto hospitalar, onde a identificação de períodos de ruído elevado no turno noturno tem impacto direto na qualidade do descanso dos doentes.
+
+\subsection{Síntese da Validação}
+
+O caso de estudo demonstrou com sucesso a exequibilidade e eficácia da solução em contexto real de ruído ambiental. Os indicadores de validação confirmam: (1) conformidade rigorosa dos cálculos acústicos com a norma ISO~1996, eliminando os erros matemáticos da plataforma original; (2) operacionalidade contínua do sistema com múltiplas estações reais e latências sub-milissegundo; (3) efetividade do módulo de análise estatística na identificação de padrões a longo prazo através de indicadores L\textsubscript{den} e L\textsubscript{T} por período; (4) sucesso dos mecanismos de reconfiguração remota via MQTT sem necessidade de acesso físico às estações; (5) integração bem-sucedida de estações em redes externas via VPN. A plataforma está pronta para operação em múltiplos contextos de monitorização acústica, desde ambientes hospitalares a zonas urbanas, comprovando a sua generalizabilidade.
 
 \section{Estado Final do Sistema}
 
