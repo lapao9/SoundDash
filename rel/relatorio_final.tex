@@ -167,7 +167,7 @@ O projeto teve como objetivo estender e otimizar a plataforma SoundDash em quatr
 
   \item \textbf{Mecanismos de reconfiguração e reinício remotos via MQTT} -- Implementar um protocolo formal de reconfiguração remota das estações de monitorização acústica, com validação por \textit{checksum} e capacidade de reinício controlado, eliminando a necessidade de acesso físico.
 
-  \item \textbf{Integração de estações externas à infraestrutura principal} -- Estender o suporte para nós de medição instalados em redes externas ao servidor, utilizando VPN de malha para garantir conectividade segura e fiável.
+  \item \textbf{Integração de estações externas à infraestrutura principal} -- Estender o suporte para estações de medição instalados em redes externas ao servidor, utilizando VPN de malha para garantir conectividade segura e fiável.
 \end{enumerate}
 
 \section{Trabalhos Relacionados}
@@ -275,14 +275,14 @@ A Tabela~\ref{tab:tecnologias} apresenta as tecnologias que compõem a instânci
 \toprule
 \textbf{Tecnologia} & \textbf{Papel} & \textbf{Ref.} \\
 \midrule
-Raspberry Pi       & Computador embarcado nos nós de medição     & \cite{raspberrypi} \\
+Raspberry Pi       & Computador embarcado nas estações de medição     & \cite{raspberrypi} \\
 MQTT / Mosquitto   & Protocolo e broker pub/sub para IoT         & \cite{mqtt} \\
 Node-RED           & Processador de fluxo de dados (ETL)         & \cite{nodered} \\
 InfluxDB           & Base de dados de séries temporais           & \cite{influxdb} \\
 Grafana            & Motor de dashboards e visualização          & \cite{grafana} \\
 Flask              & Framework web Python (servidor de aplicação) & \cite{flask} \\
 Nginx              & Servidor HTTP e \textit{reverse proxy}       & \cite{nginx} \\
-Tailscale          & Serviço VPN \textit{mesh} para nós remotos  & \cite{wireguard} \\
+Tailscale          & Serviço VPN \textit{mesh} para estações remotas  & \cite{wireguard} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -355,9 +355,9 @@ Uma plataforma de monitorização distribuída pode ser descrita como um sistema
 
 
 
-A arquitetura proposta isola rigorosamente as responsabilidades de cada componente, permitindo que operem de forma completamente independente com interfaces bem definidas. Cada componente recebe dados de uma ou mais entradas e produz saídas consumidas pelo componente seguinte, sem conhecer a implementação interna dos outros. O broker de mensagens é o único ponto de contacto entre os nós de medição e o resto do sistema, tornando os nós substituíveis sem qualquer alteração da infraestrutura central ou das estações já instaladas. O canal de configuração (tracejado) é bidirecional: o servidor web publica comandos de configuração no broker, que os entrega aos nós subscritos, mantendo a dinâmica de isolamento.
+A arquitetura proposta isola rigorosamente as responsabilidades de cada componente, permitindo que operem de forma completamente independente com interfaces bem definidas. Cada componente recebe dados de uma ou mais entradas e produz saídas consumidas pelo componente seguinte, sem conhecer a implementação interna dos outros. O broker de mensagens é o único ponto de contacto entre as estações de medição e o resto do sistema, tornando estas estações substituíveis sem qualquer alteração da infraestrutura central ou das estações já instaladas. O canal de configuração (tracejado) é bidirecional: o servidor web publica comandos de configuração no broker, que os entrega às estações subscritas, mantendo a dinâmica de isolamento.
 
-Os componentes principais da arquitetura genérica são: (1)~\textbf{Estações de monitorização} -- nós geográficos distribuídos que capturam e publicam dados acústicos; (2)~\textbf{Broker de mensagens} -- orquestrador central de comunicação entre nós e sistema; (3)~\textbf{Processador de dados} -- transforma e enriquece o fluxo de dados em tempo real; (4)~\textbf{Base de dados de séries temporais} -- armazena dados com escalabilidade e performance; (5)~\textbf{Motor de visualização} -- gera gráficos e dashboards dinâmicos; (6)~\textbf{Servidor web} -- disponibiliza análises e controlo a utilizadores não técnicos.
+Os componentes principais da arquitetura genérica são: (1)~\textbf{Estações de monitorização} -- estações geográficas distribuídos que capturam e publicam dados acústicos; (2)~\textbf{Broker de mensagens} -- orquestrador central de comunicação entre estações e sistema; (3)~\textbf{Processador de dados} -- transforma e enriquece o fluxo de dados em tempo real; (4)~\textbf{Base de dados de séries temporais} -- armazena dados com escalabilidade e performance; (5)~\textbf{Motor de visualização} -- gera gráficos e dashboards dinâmicos; (6)~\textbf{Servidor web} -- disponibiliza análises e controlo a utilizadores não técnicos.
 
 As alternativas tecnológicas para cada componente são:
 
@@ -397,7 +397,7 @@ Esta organização separa claramente as responsabilidades, permite testes unitá
 \section{Ingestão e Processamento de Dados}
 \label{sec:infra}
 
-Foram instalados e configurados todos os serviços da instância, inicialmente via Docker e depois em execução nativa na VM do ISEL:
+Foram instalados e configurados todos os serviços da instância em execução nativa na VM do ISEL:
 
 \begin{itemize}[nosep]
   \item \textbf{Mosquitto} -- broker MQTT, porta~1884
@@ -564,22 +564,39 @@ location /grafana/ {
 
 O Nginx centraliza o acesso numa única porta, elimina a exposição de portas individuais e prepara a adição futura de HTTPS/TLS. O sistema está operacional e acessível externamente.
 
+\subsection{Gestão de Serviços (NSSM)}
+
+A VM do ISEL executa num ambiente Windows, que não dispõe de Docker nativamente. A gestão dos serviços foi implementada utilizando \textbf{NSSM} (Non-Sucking Service Manager), uma ferramenta que permite registar aplicações arbitrárias como serviços do Windows com características avançadas de monitorização e reinício automático.
+
+Os serviços geridos por NSSM são:
+
+\begin{itemize}[nosep]
+  \item \textbf{Mosquitto} (porta 1881/1884) -- broker MQTT para comunicação entre estações e sistema central
+  \item \textbf{Node-RED} (porta 1880) -- processador de fluxo de dados em tempo real (ETL)
+  \item \textbf{InfluxDB} (porta 8086) -- base de dados de séries temporais
+  \item \textbf{Grafana} (porta 3000) -- motor de visualização de dashboards
+  \item \textbf{SoundDash Flask} (porta 5000) -- servidor web da aplicação
+  \item \textbf{Nginx} (porta 80) -- reverse proxy e acesso público
+\end{itemize}
+
+Cada serviço está configurado em NSSM com as seguintes características: (1)~\textbf{arranque automático no boot} da VM; (2)~\textbf{restart automático} em caso de falha inesperada; (3)~\textbf{logging persistido} para diagnóstico de problemas; (4)~\textbf{dependências de serviço}, garantindo que InfluxDB inicia antes do Node-RED. Esta abordagem garante alta disponibilidade sem necessidade de Docker ou orquestração externa.
+
 \section{Suporte a Sensores Remotos via VPN}
 \label{sec:tailscale}
 
-A arquitetura de broker centralizado permite que os nós de medição se liguem a partir de qualquer localização com acesso à internet, desde que exista conectividade de rede com o servidor. Para nós instalados em redes externas à rede local do servidor (por exemplo, com acesso apenas via cartão SIM ou rede doméstica), é necessário estabelecer um canal seguro de nível de rede.
+A arquitetura de broker centralizado permite que as estações de medição se liguem a partir de qualquer localização com acesso à internet, desde que exista conectividade de rede com o servidor. Para estações instaladas em redes externas à rede local do servidor (por exemplo, com acesso apenas via cartão SIM ou rede doméstica), é necessário estabelecer um canal seguro de nível de rede.
 
-Foi implementado suporte a VPN baseada no protocolo WireGuard~\cite{wireguard} utilizando o serviço Tailscale, que cria uma rede \textit{mesh} virtual privada entre todos os dispositivos registados na mesma conta, atribuindo a cada um um endereço IP no espaço \texttt{100.x.x.x}. O servidor e cada nó remoto ficam na mesma rede virtual, independentemente da localização física ou do tipo de acesso à internet.
+Foi implementado suporte a VPN baseada no protocolo WireGuard~\cite{wireguard} utilizando o serviço Tailscale, que cria uma rede \textit{mesh} virtual privada entre todos os dispositivos registados na mesma conta, atribuindo a cada um um endereço IP no espaço \texttt{100.x.x.x}. O servidor e cada estação remota ficam na mesma rede virtual, independentemente da localização física ou do tipo de acesso à internet.
 
 \begin{figure}[H]
     \centering
     \fbox{\includegraphics[width=0.99\linewidth]{conectividadeMQTT_graph.png}}
-    \caption{Conectividade MQTT para nós locais (rede interna) e nós remotos (VPN)}
+    \caption{Conectividade MQTT para estações locais (rede interna) e estações remotas (VPN)}
 \end{figure}
 
-A instalação num nó remoto é realizada por SSH utilizando uma \textit{auth key} pré-gerada, que autentica o dispositivo sem necessitar de browser:
+A instalação numa estação remota é realizada por SSH utilizando uma \textit{auth key} pré-gerada, que autentica o dispositivo sem necessitar de browser:
 
-\begin{lstlisting}[style=bash, caption={Instalação e autenticação Tailscale num nó remoto por SSH}]
+\begin{lstlisting}[style=bash, caption={Instalação e autenticação Tailscale numa estação remota por SSH}]
 curl -fsSL https://tailscale.com/install.sh | sh
 sudo tailscale up --authkey=tskey-auth-XXXXXXXXXX
 sudo systemctl enable tailscaled   # arranque automatico no boot
@@ -596,7 +613,7 @@ for attempt in range(60):           # ate 10 minutos
         time.sleep(10)              # 60 tentativas x 10s
 \end{lstlisting}
 
-Esta abordagem não requer alterações ao systemd e é transparente para o serviço. Para nós na rede local, o ciclo termina na primeira tentativa; para nós remotos via VPN, aguarda o tempo necessário para a rede virtual se estabelecer.
+Esta abordagem não requer alterações ao systemd e é transparente para o serviço. Para estações na rede local, o ciclo termina na primeira tentativa; para estações remotos via VPN, aguarda o tempo necessário para a rede virtual se estabelecer.
 
 \section{Scripts de Sensor e Reconfiguração Remota}
 \label{sec:sensor}
@@ -998,7 +1015,7 @@ Navegação por dia           & Clique no calendário mostra dados do dia  & Com
 \hline
 Novos parâmetros calendário & LCpeak, LAFmax, LAFmin como opções        & Completo \\
 \hline
-Suporte a nós remotos       & WireGuard/Tailscale VPN + retry no boot   & Completo \\
+Suporte a estações remotas       & WireGuard/Tailscale VPN + retry no boot   & Completo \\
 \hline
 Reboot remoto               & Botão na app + tópico MQTT dedicado       & Completo \\
 \hline
@@ -1026,7 +1043,7 @@ Este projeto concluiu com sucesso a extensão e melhoria da plataforma SoundDash
 
   \item \textbf{Arquitetura modular e genérica}: a reestruturação em \textit{blueprints} Flask e a separação clara entre componentes da plataforma facilita a substituição de qualquer componente e a extensão para novos domínios de aplicação.
 
-  \item \textbf{\textit{Deployment} público}: o sistema é acessível externamente via Nginx, com quatro estações reais em operação contínua, incluindo suporte a nós em redes externas via VPN.
+  \item \textbf{\textit{Deployment} público}: o sistema é acessível externamente via Nginx, com quatro estações reais em operação contínua, incluindo suporte a estações em redes externas via VPN.
 \end{itemize}
 
 \section{Limitações Conhecidas}
@@ -1034,7 +1051,7 @@ Este projeto concluiu com sucesso a extensão e melhoria da plataforma SoundDash
 \begin{itemize}
   \item O mecanismo de autenticação usa um ficheiro de configuração em vez de uma base de dados, o que é adequado para o número atual de utilizadores mas limita a escalabilidade em contextos com múltiplos técnicos ou necessidade de gestão de permissões.
   \item A classificação automática de eventos com o modelo YAMNet~\cite{yamnet} não foi totalmente validada em contexto real; os \textit{labels} do modelo foram treinados em ambiente genérico e podem não corresponder às categorias acústicas relevantes em todos os domínios de aplicação.
-  \item O suporte a nós remotos via Tailscale requer instalação e autenticação prévia em cada dispositivo; em caso de expiração da \textit{auth key} ou remoção do dispositivo da conta, o nó perde conectividade remota.
+  \item O suporte a estações remotas via Tailscale requer instalação e autenticação prévia em cada dispositivo; em caso de expiração da \textit{auth key} ou remoção do dispositivo da conta, a estação perde conectividade remota.
 \end{itemize}
 
 \section{Trabalho Futuro}
