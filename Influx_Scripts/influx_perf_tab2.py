@@ -14,7 +14,7 @@ INFLUX_URL  = "http://localhost:8086"
 TOKEN       = "VfIVKgRa7ZcYF_LdpSWHliW2u3M_Q8iLUw6SUNReVbbjVio957NRpJollg9p-LxqJKm4CHOpupQPQ4fApef2uQ=="
 ORG         = "ISEL"
 BUCKET      = "SoundDashHosp"
-MEASUREMENT = "Sensor1"
+MEASUREMENT = "sensor3"
 
 
 def run(client, query, label):
