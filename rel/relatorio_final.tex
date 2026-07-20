@@ -122,12 +122,6 @@ Este projeto teve como objetivo estender e otimizar a plataforma SoundDash em qu
 % --- ÍNDICES ---
 {\hypersetup{linkcolor=black}\tableofcontents}
 
-{\hypersetup{linkcolor=black}\listoffigures}
-
-{\hypersetup{linkcolor=black}\listoftables}
-
-{\hypersetup{linkcolor=black}\lstlistoflistings}
-
 
 % =====================================================================
 \chapter{Introdução}
@@ -179,6 +173,14 @@ As \textbf{plataformas IoT generalistas}, como o ThingsBoard~\cite{thingsboard},
 No domínio da monitorização distribuída com arquitetura semelhante à do SoundDash, destacam-se: o \textbf{COVIS}~\cite{covis}, sistema de monitorização de sinais vitais em lares com recolha distribuída e publicação centralizada; o \textbf{MIRA}~\cite{mira}, plataforma de monitorização de ruído ambiental urbano com o mesmo domínio acústico mas sem análise histórica interativa; e o \textbf{Hospital SUDOE 4.0}~\cite{sudoe}, que aplica sensores IoT de baixo custo a ambientes hospitalares, demonstrando a viabilidade de sistemas distribuídos em contexto clínico.
 
 A plataforma herdada, SoundDashHosp~\cite{prevSoundDash,soundmeterhosp}, focava-se na visualização em tempo real e na deteção automática de eventos sonoros via \textit{deep learning}~\cite{yamnet}, sem módulo de análise histórica, sem mecanismos de reconfiguração remota e com cálculos acústicos incorretos. O presente trabalho parte desta base e estende-a nessas três dimensões.
+
+\section{Disponibilidade do Código}
+
+Todo o código-fonte da plataforma, scripts de configuração, guias de instalação e ficheiros de suporte estão disponíveis no repositório público GitHub:
+
+\url{https://github.com/lapao9/SoundDash}
+
+O repositório inclui a documentação técnica completa, exemplos de utilização, instruções de deployment em ambiente Windows/Linux, e referências aos componentes externos (Mosquitto, Node-RED, InfluxDB, Grafana e Nginx).
 
 % =====================================================================
 \chapter{Fundamentos}
