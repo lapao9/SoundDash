@@ -113,6 +113,13 @@ function renderCalendar(dias, param) {
           td.style.backgroundColor = dbToColor(val);
           td.title = `${dateStr}: ${val.toFixed(1)} dB`;
         }
+        if (info.eventos > 0) {
+          const badge = document.createElement('span');
+          badge.className = 'cal-event-badge';
+          badge.textContent = info.eventos;
+          td.title = (td.title ? td.title + '  |  ' : '') + `${info.eventos} evento(s) detetado(s)`;
+          td.appendChild(badge);
+        }
         td.style.cursor = 'pointer';
         td.addEventListener('click', () => mostrarDia(dateStr, td));
       } else if (!info || date < firstDay || date > lastDay) {
@@ -335,6 +342,13 @@ function atualizarResumo(dias, param) {
   document.getElementById('resumoMax').textContent   = `${maxItem.date.slice(5).replace('-','/')} (${maxItem.val.toFixed(1)} dB)`;
   document.getElementById('resumoMin').textContent   = `${minItem.date.slice(5).replace('-','/')} (${minItem.val.toFixed(1)} dB)`;
   document.getElementById('resumoDias').textContent  = `${vals.length} / ${dias.length}`;
+
+  const totalEventos = dias.reduce((s, d) => s + (d.eventos || 0), 0);
+  const diaMaisEventos = dias.filter(d => d.eventos > 0)
+    .reduce((a, b) => (!a || b.eventos > a.eventos) ? b : a, null);
+  document.getElementById('resumoEventos').textContent = totalEventos > 0
+    ? `${totalEventos} (pico: ${diaMaisEventos.date.slice(5).replace('-','/')})`
+    : '0';
 }
 
 async function atualizarCalendario() {
@@ -490,6 +504,56 @@ async function atualizarSemanal() {
     console.error('Erro ao carregar semanal:', err);
   } finally {
     setLoading(false);
+  }
+}
+
+// ── Download CSV ───────────────────────────────────────────────────────────
+
+function triggerDownload(csv, filename) {
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function downloadCSV() {
+  const sensor = document.getElementById('sensorSelect').value || 'sensor';
+
+  if (vistaAtual === 'mensal') {
+    if (!diasCache || !diasCache.length) { alert('Sem dados para exportar. Atualiza o calendário primeiro.'); return; }
+
+    const headers = ['Data','LAeq (dB)','Turno1 00-08h (dB)','Turno2 08-16h (dB)','Turno3 16-00h (dB)',
+                      'Ld 07-19h (dB)','Le 19-23h (dB)','Ln 23-07h (dB)','Lden (dB)',
+                      'LCpeak max (dB)','LAFmax (dB)','LAFmin (dB)','Eventos'];
+    const rows = diasCache.map(d => [
+      d.date, d.laeq ?? '', d.turno1 ?? '', d.turno2 ?? '', d.turno3 ?? '',
+      d.ld ?? '', d.le ?? '', d.ln ?? '', d.lden ?? '',
+      d.lcpeak ?? '', d.lmax ?? '', d.lmin ?? '', d.eventos ?? 0
+    ]);
+    const csv = [headers, ...rows].map(r => r.join(';')).join('\n');
+
+    const mes = document.getElementById('mesSelect').value.toString().padStart(2, '0');
+    const ano = document.getElementById('anoSelect').value;
+    triggerDownload(csv, `SoundDash_estatisticas_${sensor}_${ano}-${mes}.csv`);
+
+  } else {
+    if (!semanalCache) { alert('Sem dados para exportar. Atualiza a semana primeiro.'); return; }
+
+    const headers = ['Hora / Turno', ...semanalCache.days];
+    const rowsLaeq    = semanalCache.horas.map(h => [`LAeq ${h.label}`,   ...semanalCache.days.map(d => h.data[d]?.laeq   ?? '')]);
+    const rowsLcpeak  = semanalCache.horas.map(h => [`LCpeak ${h.label}`, ...semanalCache.days.map(d => h.data[d]?.lcpeak ?? '')]);
+    const rowsEventos = semanalCache.horas.map(h => [`Eventos ${h.label}`,...semanalCache.days.map(d => h.data[d]?.events ?? 0)]);
+    const rowsTurnos  = semanalCache.turnos.map(t => [`Turno LAeq ${t.label}`, ...semanalCache.days.map(d => t.data[d]?.laeq ?? '')]);
+
+    const csv = [headers, ...rowsLaeq, ...rowsLcpeak, ...rowsEventos, [], headers, ...rowsTurnos]
+      .map(r => r.join(';')).join('\n');
+
+    triggerDownload(csv, `SoundDash_estatisticas_semanal_${sensor}_${semanalCache.week_start}.csv`);
   }
 }
 

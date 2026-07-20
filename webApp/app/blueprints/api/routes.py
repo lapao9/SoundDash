@@ -367,6 +367,7 @@ def get_calendario():
 
     raw = fetch_hourly_campos(sensor, to_rfc3339(start_dt), to_rfc3339(end_dt),
                               ['LAEA', 'LCpeak', 'LAFmax', 'LAFmin'])
+    ev_counts = fetch_event_intervals_by_hour(sensor, to_rfc3339(start_dt), to_rfc3339(end_dt))
 
     by_day = defaultdict(lambda: defaultdict(list))
     for item in raw:
@@ -381,6 +382,7 @@ def get_calendario():
         day_str    = current.strftime('%Y-%m-%d')
         fields_day = by_day.get(day_str, {})
         laea_hours = fields_day.get('LAEA', [])
+        eventos_dia = sum(ev_counts.get((day_str, h), 0) for h in range(24))
 
         if laea_hours:
             all_vals = [h['value'] for h in laea_hours]
@@ -423,13 +425,14 @@ def get_calendario():
                 'lcpeak': round(lcpeak, 1) if lcpeak is not None else None,
                 'lmax':   round(lmax,   1) if lmax   is not None else None,
                 'lmin':   round(lmin,   1) if lmin   is not None else None,
+                'eventos': eventos_dia,
                 'has_data': True
             })
         else:
             result.append({'date': day_str, 'laeq': None, 'turno1': None, 'turno2': None,
                            'turno3': None, 'ld': None, 'le': None, 'ln': None,
                            'lden': None, 'lcpeak': None, 'lmax': None,
-                           'lmin': None, 'has_data': False})
+                           'lmin': None, 'eventos': eventos_dia, 'has_data': False})
         current += timedelta(days=1)
 
     return jsonify({'dias': result})
