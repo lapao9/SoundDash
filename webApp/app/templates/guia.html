@@ -11,65 +11,142 @@
 
 {% block content %}
 <main class="container my-5">
-  <h1 class="text-center mb-4">📘 Guia de Utilização</h1>
-  <p class="lead text-center mb-5">
-    Este guia foi desenvolvido para ajudá-lo a utilizar eficazmente a plataforma SoundDashHosp. Aqui encontrará instruções sobre como aceder, visualizar e interpretar os dados acústicos recolhidos nos ambientes hospitalares, bem como exportar relatórios e compreender os indicadores técnicos.
-  </p>
 
-  <div class="section-title">1. Objetivo da Plataforma</div>
-  <p>
-    O <strong>SoundDashHosp</strong> é uma ferramenta de apoio à gestão do ruído em ambientes hospitalares. Através da recolha contínua de dados sonoros por sensores distribuídos, o sistema fornece análises em tempo real e históricas que permitem identificar situações críticas e promover ações corretivas, assegurando um ambiente mais calmo e saudável para pacientes e profissionais.
-  </p>
+  <section class="guia-hero text-center mb-5">
+    <div class="guia-icon">📘</div>
+    <h1 class="mb-3">Guia de Utilização</h1>
+    <p class="lead mx-auto" style="max-width:680px;">
+      Tudo o que precisa de saber para tirar o máximo partido do SoundDashHosp — desde a
+      navegação básica até à interpretação dos indicadores acústicos.
+    </p>
+  </section>
 
-  <div class="section-title">2. Navegação Geral</div>
-  <p>A plataforma está organizada em várias páginas principais:</p>
-  <ul>
-    <li><strong>Início:</strong> Introdução ao sistema e acesso rápido às funcionalidades principais.</li>
-    <li><strong>Monitorização em Tempo Real:</strong> Visualização dos níveis de ruído em tempo real por sensor.</li>
-    <li><strong>Monitorização por Período:</strong> Permite escolher intervalos de tempo e analisar tendências acústicas passadas.</li>
-    <li><strong>Eventos Detetados:</strong> Mostra momentos específicos com anomalias ou picos de ruído identificados automaticamente.</li>
-    <li><strong>Guia:</strong> Esta página com instruções e explicações técnicas.</li>
-  </ul>
+  <nav class="guia-quicknav mb-5" aria-label="Navegação rápida do guia">
+    <a href="#objetivo">Objetivo</a>
+    <a href="#navegacao">Navegação</a>
+    <a href="#periodo">Sensor &amp; Período</a>
+    <a href="#graficos">Gráficos</a>
+    <a href="#eventos">Eventos</a>
+    <a href="#exportacao">Exportação</a>
+    <a href="#termos">Termos Técnicos</a>
+  </nav>
 
-  <div class="tip-box">💡 <strong>Dica:</strong> Para melhor desempenho, utilize a plataforma num navegador moderno (ex: Chrome, Firefox ou Edge).</div>
+  <div class="guia-sections">
 
-  <div class="section-title">3. Seleção de Período e Sensor</div>
-  <p>
-    Nas páginas de monitorização, poderá selecionar o <strong>sensor</strong> pretendido e o <strong>intervalo temporal</strong> que deseja analisar. Após isso, os dados são carregados automaticamente e apresentados em gráficos interativos e indicadores estatísticos.
-  </p>
+    <section id="objetivo" class="guia-card">
+      <div class="guia-card-head">
+        <span class="guia-num">1</span>
+        <h2>Objetivo da Plataforma</h2>
+      </div>
+      <p>
+        O <strong>SoundDashHosp</strong> é uma ferramenta de apoio à gestão do ruído em ambientes
+        hospitalares. Através da recolha contínua de dados sonoros por estações distribuídas, o
+        sistema disponibiliza análises em tempo real e históricas que permitem identificar situações
+        críticas e promover ações corretivas — assegurando um ambiente mais calmo e saudável para
+        doentes e profissionais.
+      </p>
+    </section>
 
-  <div class="section-title">4. Interpretação dos Gráficos</div>
-  <p>Os principais indicadores exibidos incluem:</p>
-  <ul>
-    <li><strong>LAeq:</strong> Nível médio contínuo de ruído (ponderação A).</li>
-    <li><strong>LAFmax:</strong> Valor máximo instantâneo (ponderação A, tempo rápido).</li>
-    <li><strong>LAFmin:</strong> Valor mínimo registado no intervalo selecionado.</li>
-    <li><strong>BT63 - BT20000:</strong> Distribuição espectral em bandas de 1/3 de oitava.</li>
-  </ul>
-  <p>Passe o cursor sobre os gráficos para ver valores detalhados em cada ponto.</p>
+    <section id="navegacao" class="guia-card">
+      <div class="guia-card-head">
+        <span class="guia-num">2</span>
+        <h2>Navegação Geral</h2>
+      </div>
+      <p>A plataforma está organizada em várias páginas principais:</p>
+      <div class="guia-nav-grid">
+        <div class="guia-nav-item"><span class="guia-nav-icon">🏠</span><div><strong>Início</strong><br>Apresentação do sistema e acesso rápido às funcionalidades principais.</div></div>
+        <div class="guia-nav-item"><span class="guia-nav-icon">📡</span><div><strong>Monitorização em Tempo Real</strong><br>Níveis de ruído atualizados continuamente, por estação.</div></div>
+        <div class="guia-nav-item"><span class="guia-nav-icon">📈</span><div><strong>Monitorização por Período</strong><br>Escolha um intervalo de tempo e analise tendências passadas.</div></div>
+        <div class="guia-nav-item"><span class="guia-nav-icon">📅</span><div><strong>Estatísticas</strong><br>Calendário mensal e vista semanal com padrões de longo prazo e L<sub>den</sub>.</div></div>
+        <div class="guia-nav-item"><span class="guia-nav-icon">🔔</span><div><strong>Eventos Detetados</strong><br>Momentos específicos com anomalias ou picos de ruído identificados automaticamente.</div></div>
+        <div class="guia-nav-item"><span class="guia-nav-icon">🗺️</span><div><strong>Mapa</strong><br>Localização geográfica das estações e respetivos dados em tempo real.</div></div>
+        <div class="guia-nav-item"><span class="guia-nav-icon">📘</span><div><strong>Guia</strong><br>Esta página, com instruções e explicações técnicas.</div></div>
+        <div class="guia-nav-item"><span class="guia-nav-icon">⚙️</span><div><strong>Acesso Técnico</strong><br>Área reservada para reconfiguração e reinício remoto das estações.</div></div>
+      </div>
+      <div class="tip-box">💡 <strong>Dica:</strong> Para melhor desempenho, utilize a plataforma num navegador atual (ex: Chrome, Firefox ou Edge).</div>
+    </section>
 
-  <div class="tip-box">💡 <strong>Dica:</strong> Combine a análise temporal com a página de eventos para identificar padrões comportamentais e horários críticos.</div>
+    <section id="periodo" class="guia-card">
+      <div class="guia-card-head">
+        <span class="guia-num">3</span>
+        <h2>Seleção de Sensor e Período</h2>
+      </div>
+      <p>
+        Nas páginas de monitorização, poderá selecionar a <strong>estação</strong> pretendida e o
+        <strong>intervalo temporal</strong> a analisar. Após isso, os dados são carregados
+        automaticamente e apresentados em gráficos interativos e indicadores estatísticos.
+      </p>
+      <p>
+        Na página de <strong>Estatísticas</strong>, alterne entre a vista <em>Mensal</em> (calendário
+        colorido por dia) e a vista <em>Semanal</em> (tabelas por hora e por turno), e clique em
+        qualquer dia do calendário para ver o detalhe desse dia.
+      </p>
+    </section>
 
-  <div class="section-title">5. Eventos Detetados</div>
-  <p>
-    A plataforma identifica automaticamente eventos acústicos com base em limiares e padrões. Estes eventos são apresentados com marca temporal e classificações como:
-  </p>
-  <ul>
-    <li><strong>EventType1 a EventType10:</strong> Categorias atribuídas a diferentes tipos de ruído (impactos, quedas, gritos, alarmes, etc.).</li>
-  </ul>
-  <p>Esta funcionalidade permite reconhecer situações fora do normal e atuar de forma proativa.</p>
+    <section id="graficos" class="guia-card">
+      <div class="guia-card-head">
+        <span class="guia-num">4</span>
+        <h2>Interpretação dos Gráficos</h2>
+      </div>
+      <p>Os principais indicadores exibidos incluem:</p>
+      <ul>
+        <li><strong>LAeq:</strong> nível médio contínuo de ruído (ponderação A).</li>
+        <li><strong>LAFmax:</strong> valor máximo instantâneo (ponderação A, tempo rápido).</li>
+        <li><strong>LAFmin:</strong> valor mínimo registado no intervalo selecionado.</li>
+        <li><strong>LCpeak:</strong> pico máximo ponderado em C — útil para eventos impulsivos (ex: queda de um objeto, porta batida).</li>
+        <li><strong>BT63 – BT20000:</strong> distribuição espectral em bandas de 1/3 de oitava.</li>
+      </ul>
+      <p>Passe o cursor sobre os gráficos para ver os valores detalhados em cada ponto.</p>
+      <div class="tip-box">💡 <strong>Dica:</strong> Combine a análise temporal com a página de Estatísticas para identificar padrões comportamentais e horários críticos ao longo de semanas ou meses.</div>
+    </section>
 
-  <div class="section-title">6. Exportação de Dados</div>
-  <p>
-    Ao consultar dados por período, poderá descarregar o ficheiro completo no formato <strong>CSV</strong> clicando em <em>"Descarregar CSV"</em>. Este ficheiro contém todas as colunas disponíveis, incluindo métricas acústicas e eventos, para posterior análise ou arquivo institucional.
-  </p>
+    <section id="eventos" class="guia-card">
+      <div class="guia-card-head">
+        <span class="guia-num">5</span>
+        <h2>Eventos Detetados</h2>
+      </div>
+      <p>
+        A plataforma identifica automaticamente eventos acústicos com base em limiares e padrões.
+        Estes eventos são apresentados com marca temporal e classificação por tipo (impacto,
+        alarme, conversa, música, entre outros).
+      </p>
+      <p>
+        Na página de <strong>Estatísticas</strong>, os dias com eventos detetados mostram um pequeno
+        indicador no canto do calendário mensal, e a vista semanal permite ativar a opção
+        <em>"Mostrar eventos detetados"</em> para ver a contagem hora a hora.
+      </p>
+      <p>Esta funcionalidade permite reconhecer situações fora do normal e atuar de forma proativa.</p>
+    </section>
 
-  <div class="section-title">7. Termos Técnicos Comuns</div>
-  <ul>
-    <li><strong>LAeq:</strong> Nível equivalente contínuo de ruído ponderado A.</li>
-    <li><strong>LZeq / LCeq:</strong> Níveis médios com outras ponderações (Z = linear, C = baixa frequência).</li>
-    <li><strong>LAF:</strong> Energia acústica acumulada ao longo do tempo.</li>
-    <li><strong>BTx:</strong> Bandas de Terço de Oitava (ex: BT500 representa a faixa centrada nos 500Hz).</li>
-  </ul>
+    <section id="exportacao" class="guia-card">
+      <div class="guia-card-head">
+        <span class="guia-num">6</span>
+        <h2>Exportação de Dados</h2>
+      </div>
+      <p>
+        Na página de <strong>Estatísticas</strong>, o botão <em>"Descarregar CSV"</em> exporta
+        exatamente os resultados apresentados no ecrã — calendário mensal ou tabela semanal,
+        consoante a vista ativa — incluindo os totais de eventos detetados por dia.
+      </p>
+      <p>
+        Para dados brutos ao segundo de um intervalo específico, consulte o técnico responsável
+        pela exportação completa via API.
+      </p>
+    </section>
+
+    <section id="termos" class="guia-card">
+      <div class="guia-card-head">
+        <span class="guia-num">7</span>
+        <h2>Termos Técnicos Comuns</h2>
+      </div>
+      <ul>
+        <li><strong>LAeq:</strong> nível equivalente contínuo de ruído, ponderado A.</li>
+        <li><strong>LZeq / LCeq:</strong> níveis médios com outras ponderações (Z = linear, C = baixa frequência).</li>
+        <li><strong>L<sub>den</sub>:</strong> indicador oficial da Diretiva 2002/49/CE, que pondera o ruído por período do dia (dia, entardecer, noite) com penalizações para os períodos mais sensíveis.</li>
+        <li><strong>BTx:</strong> Bandas de Terço de Oitava (ex: BT500 representa a faixa centrada nos 500 Hz).</li>
+      </ul>
+    </section>
+
+  </div>
 </main>
 {% endblock %}

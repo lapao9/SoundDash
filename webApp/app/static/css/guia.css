@@ -1,15 +1,130 @@
-.section-title {
-  font-size: 1.6rem;
-  font-weight: bold;
-  margin-top: 2.5rem;
-  border-left: 5px solid #3498db;
-  padding-left: 0.75rem;
+/* ===== Hero ===== */
+.guia-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
 }
 
+/* ===== Quick nav ===== */
+.guia-quicknav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  position: sticky;
+  top: 0.75rem;
+  z-index: 5;
+}
+
+.guia-quicknav a {
+  background: white;
+  border: 1px solid rgba(52,152,219,0.25);
+  color: var(--dark, #2c3e50);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  text-decoration: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.guia-quicknav a:hover {
+  background: var(--blue, #3498db);
+  color: white;
+  border-color: var(--blue, #3498db);
+}
+
+/* ===== Section cards ===== */
+.guia-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.guia-card {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem 2.25rem;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+  scroll-margin-top: 4.5rem;
+}
+
+.guia-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.1rem;
+}
+
+.guia-card-head h2 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--dark, #2c3e50);
+  margin: 0;
+}
+
+.guia-num {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(52,152,219,0.12);
+  color: var(--blue, #3498db);
+  font-weight: 800;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.guia-card p,
+.guia-card li {
+  color: #4a5568;
+  line-height: 1.6;
+}
+
+.guia-card ul {
+  padding-left: 1.1rem;
+}
+
+.guia-card li + li {
+  margin-top: 0.3rem;
+}
+
+/* ===== Navigation grid inside "Navegação Geral" ===== */
+.guia-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 1rem;
+  margin: 1.25rem 0;
+}
+
+.guia-nav-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  background: #f5f8fa;
+  border-radius: 8px;
+  padding: 0.9rem 1rem;
+  font-size: 0.88rem;
+}
+
+.guia-nav-item strong {
+  color: var(--dark, #2c3e50);
+}
+
+.guia-nav-icon {
+  font-size: 1.3rem;
+  flex: none;
+  line-height: 1;
+}
+
+/* ===== Tip box ===== */
 .tip-box {
   background-color: #e9f7fe;
   border-left: 5px solid #0dcaf0;
-  padding: 1rem;
+  padding: 1rem 1.25rem;
   border-radius: 0.5rem;
-  margin: 1.5rem 0;
+  margin: 1.5rem 0 0;
 }

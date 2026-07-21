@@ -8,40 +8,149 @@
 {% endblock %}
 
 {% block content %}
-<main class="container my-5">
-  <section class="hero text-center mb-5">
-    <h1 class="mb-4">Transforme o Ambiente Sonoro do seu Hospital</h1>
-    <p class="lead mb-4 mx-auto" style="max-width:800px;">
-      SoundDashHosp é uma solução para monitoramento e análise de níveis sonoros em ambientes hospitalares, promovendo um ambiente mais saudável para pacientes e profissionais de saúde.
+
+<section class="hp-hero">
+  <div class="container">
+    <div class="hp-eyebrow">Monitorização Acústica Distribuída</div>
+    <h1 class="hp-title">O ruído hospitalar,<br>finalmente visível.</h1>
+    <p class="hp-subtitle">
+      Medição contínua, análise histórica e reconfiguração remota de estações acústicas —
+      para um ambiente mais silencioso e mais saudável.
     </p>
-    <div class="d-flex flex-column flex-md-row justify-content-center gap-3 mt-4">
-      <a href="/atual" class="cta-button">Monitorização Em Tempo Real</a>
-      <a href="/tempo" class="cta-button secondary">Monitorização por Período</a>
+    <div class="hp-cta-row">
+      <a href="/atual" class="cta-button">Ver Monitorização em Tempo Real</a>
+      <a href="/estatisticas" class="cta-button secondary">Explorar Estatísticas</a>
+    </div>
+
+    <div class="hp-eq" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+</section>
+
+<section class="hp-stats">
+  <div class="container">
+    <div class="hp-stats-grid">
+      <div class="hp-stat">
+        <div class="hp-stat-num">16 Hz</div>
+        <div class="hp-stat-lbl">frequência de amostragem por estação</div>
+      </div>
+      <div class="hp-stat">
+        <div class="hp-stat-num">24 / 7</div>
+        <div class="hp-stat-lbl">recolha contínua, sem interrupções</div>
+      </div>
+      <div class="hp-stat">
+        <div class="hp-stat-num">L<sub>den</sub></div>
+        <div class="hp-stat-lbl">indicador oficial, conforme a Diretiva 2002/49/CE</div>
+      </div>
+      <div class="hp-stat">
+        <div class="hp-stat-num">ISO 1996</div>
+        <div class="hp-stat-lbl">cálculos acústicos em conformidade normativa</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<main class="container">
+
+  <section class="hp-features my-5 py-4">
+    <h2 class="hp-section-title text-center">O que a plataforma oferece</h2>
+    <p class="hp-section-sub text-center mx-auto mb-5">
+      Cada página foi pensada para uma necessidade diferente — do acompanhamento imediato à análise de tendências de longo prazo.
+    </p>
+
+    <div class="row g-4">
+      <div class="col-md-6 col-lg-4">
+        <a href="/atual" class="feature-card">
+          <div class="feature-icon">📡</div>
+          <h3>Tempo Real</h3>
+          <p>Níveis sonoros, espectrograma e eventos atualizados continuamente, por estação.</p>
+        </a>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <a href="/estatisticas" class="feature-card featured">
+          <div class="feature-badge">Novo</div>
+          <div class="feature-icon">📅</div>
+          <h3>Estatísticas</h3>
+          <p>Calendário mensal e vista semanal com padrões de longo prazo, L<sub>den</sub> e exportação para CSV.</p>
+        </a>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <a href="/tempo" class="feature-card">
+          <div class="feature-icon">📈</div>
+          <h3>Por Período</h3>
+          <p>Analisa tendências e compara intervalos de tempo à medida das tuas necessidades.</p>
+        </a>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <a href="/eventos" class="feature-card">
+          <div class="feature-icon">🔔</div>
+          <h3>Eventos Detetados</h3>
+          <p>Deteção automática de picos e anomalias sonoras, com classificação por tipo.</p>
+        </a>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <a href="/mapa" class="feature-card">
+          <div class="feature-icon">🗺️</div>
+          <h3>Mapa de Estações</h3>
+          <p>Localização geográfica de cada estação e respetivos dados em tempo real.</p>
+        </a>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <a href="/acesso-tecnico" class="feature-card">
+          <div class="feature-icon">⚙️</div>
+          <h3>Acesso Técnico</h3>
+          <p>Reconfiguração e reinício remoto das estações, sem necessidade de acesso físico.</p>
+        </a>
+      </div>
     </div>
   </section>
 
-  <section class="features row g-4 my-5">
-    <div class="col-md-6">
-      <div class="feature-card">
-        <div class="feature-icon">📊</div>
-        <h3><strong>Monitorização Em Tempo Real</strong></h3>
-        <p>Acesse os dados sonoros atualizados continuamente de diferentes métricas, permitindo intervenções imediatas se e quando necessário.</p>
+  <section class="hp-scale my-5 py-4">
+    <h2 class="hp-section-title text-center">Porque é que isto importa</h2>
+    <p class="hp-section-sub text-center mx-auto mb-5">
+      A exposição contínua ao ruído afeta o sono, o stresse e a recuperação dos doentes.
+      Pequenas diferenças em decibéis representam grandes diferenças reais.
+    </p>
+
+    <div class="db-scale">
+      <div class="db-track"></div>
+      <div class="db-point" style="left:8%">
+        <div class="db-dot"></div>
+        <div class="db-val">20 dB</div>
+        <div class="db-lbl">Quarto silencioso</div>
       </div>
-    </div>
-    <div class="col-md-6">
-      <div class="feature-card">
-        <div class="feature-icon">📈</div>
-        <h3><strong>Monitorização por Período</strong></h3>
-        <p>Visualize tendências e padrões sonoros ao longo do tempo para identificar horários críticos e implementar melhorias estratégicas.</p>
+      <div class="db-point" style="left:34%">
+        <div class="db-dot"></div>
+        <div class="db-val">35 dB</div>
+        <div class="db-lbl">Limite recomendado (OMS) num hospital</div>
+      </div>
+      <div class="db-point" style="left:62%">
+        <div class="db-dot"></div>
+        <div class="db-val">60 dB</div>
+        <div class="db-lbl">Conversa normal</div>
+      </div>
+      <div class="db-point" style="left:88%">
+        <div class="db-dot"></div>
+        <div class="db-val">70 dB</div>
+        <div class="db-lbl">Trânsito urbano</div>
       </div>
     </div>
   </section>
 
   <section id="sobre" class="about my-5 py-4">
-    <h2 class="text-center mb-4">Sobre o SoundDashHosp</h2>
+    <h2 class="hp-section-title text-center">Sobre o SoundDashHosp</h2>
     <p class="text-center mx-auto" style="max-width:800px;">
-      O SoundDashHosp foi desenvolvido por alunos do ISEL com orientação de professores do mesmo instituto e do IPBeja para atender à crescente necessidade de controle de ruído em ambientes hospitalares. Estudos mostram que níveis sonoros elevados podem afetar negativamente a recuperação dos pacientes e aumentar o stresse da equipe médica. A nossa solução oferece ferramentas para monitoramento, análise e gestão do ambiente sonoro, contribuindo para a humanização dos cuidados em saúde.
+      O <strong>SoundDashHosp</strong> foi desenvolvido por alunos do ISEL, com orientação de docentes
+      do mesmo instituto, para responder à crescente necessidade de controlo do ruído em ambientes
+      hospitalares. A investigação mostra que níveis sonoros elevados prejudicam a recuperação dos
+      doentes e aumentam o stresse das equipas de saúde. A nossa plataforma reúne, num só lugar,
+      as ferramentas de monitorização, análise histórica e gestão remota necessárias para tornar
+      o ambiente sonoro hospitalar mais saudável — para quem cuida e para quem é cuidado.
     </p>
   </section>
+
 </main>
 {% endblock %}
