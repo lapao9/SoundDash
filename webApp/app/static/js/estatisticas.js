@@ -5,6 +5,7 @@ const DIAS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 let vistaAtual      = 'mensal';
 let semanalCache    = null;
 let showEventos     = false;
+let showEventosMensal = false;
 let graficoChart  = null;
 let graficoTipo   = 'lclaeq';
 let diasCache     = null;
@@ -113,7 +114,7 @@ function renderCalendar(dias, param) {
           td.style.backgroundColor = dbToColor(val);
           td.title = `${dateStr}: ${val.toFixed(1)} dB`;
         }
-        if (info.eventos > 0) {
+        if (showEventosMensal && info.eventos > 0) {
           const badge = document.createElement('span');
           badge.className = 'cal-event-badge';
           badge.textContent = info.eventos;
@@ -562,6 +563,13 @@ function toggleEventos() {
   if (semanalCache) {
     renderWeeklyHoras(semanalCache);
     renderWeeklyTurnos(semanalCache);
+  }
+}
+
+function toggleEventosMensal() {
+  showEventosMensal = document.getElementById('checkEventosMensal').checked;
+  if (diasCache) {
+    renderCalendar(diasCache, document.getElementById('paramSelect').value);
   }
 }
 

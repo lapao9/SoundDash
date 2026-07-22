@@ -47,6 +47,10 @@
             <option value="lmin">LAFmin (mín. diário)</option>
           </select>
           <button class="btn btn-primary w-100" onclick="atualizarCalendario()">Atualizar</button>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="checkEventosMensal" onchange="toggleEventosMensal()">
+            <label class="form-check-label small" for="checkEventosMensal">Mostrar eventos detetados</label>
+          </div>
         </div>
 
         <!-- Semanal: date picker -->
