@@ -161,6 +161,7 @@ function atualizarGrafico() {
 function downloadCSV() {
   const start = document.getElementById('startDate').value;
   const end   = document.getElementById('endDate').value;
+  //para debug vou mostrar um alerta com as datas para confirmar:
   const sensors = getSelectedSensors();
   if (!start || !end || sensors.length !== 1) {
     alert('Por favor seleciona um único sensor e datas válidas.');

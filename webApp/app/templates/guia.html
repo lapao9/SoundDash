@@ -16,7 +16,7 @@
     <div class="guia-icon">📘</div>
     <h1 class="mb-3">Guia de Utilização</h1>
     <p class="lead mx-auto" style="max-width:680px;">
-      Tudo o que precisa de saber para tirar o máximo partido do SoundDashHosp — desde a
+      Tudo o que precisa de saber para tirar o máximo partido do SoundPlatform — desde a
       navegação básica até à interpretação dos indicadores acústicos.
     </p>
   </section>
@@ -39,8 +39,9 @@
         <h2>Objetivo da Plataforma</h2>
       </div>
       <p>
-        O <strong>SoundDashHosp</strong> é uma ferramenta de apoio à gestão do ruído em ambientes
-        hospitalares. Através da recolha contínua de dados sonoros por estações distribuídas, o
+        O <strong>SoundPlatform</strong> é uma ferramenta de apoio à gestão do ruído em ambientes
+        hospitalares e urbanos. Através da recolha contínua de dados sonoros por estações 
+        distribuídas geograficamente, o
         sistema disponibiliza análises em tempo real e históricas que permitem identificar situações
         críticas e promover ações corretivas — assegurando um ambiente mais calmo e saudável para
         doentes e profissionais.
@@ -57,7 +58,7 @@
         <div class="guia-nav-item"><span class="guia-nav-icon">🏠</span><div><strong>Início</strong><br>Apresentação do sistema e acesso rápido às funcionalidades principais.</div></div>
         <div class="guia-nav-item"><span class="guia-nav-icon">📡</span><div><strong>Monitorização em Tempo Real</strong><br>Níveis de ruído atualizados continuamente, por estação.</div></div>
         <div class="guia-nav-item"><span class="guia-nav-icon">📈</span><div><strong>Monitorização por Período</strong><br>Escolha um intervalo de tempo e analise tendências passadas.</div></div>
-        <div class="guia-nav-item"><span class="guia-nav-icon">📅</span><div><strong>Estatísticas</strong><br>Calendário mensal e vista semanal com padrões de longo prazo e L<sub>den</sub>.</div></div>
+        <div class="guia-nav-item"><span class="guia-nav-icon">📅</span><div><strong>Estatísticas</strong><br>Calendário mensal e vista semanal com padrões de longo prazo e L<sub>den</sub>, L<sub>n</sub>.</div></div>
         <div class="guia-nav-item"><span class="guia-nav-icon">🔔</span><div><strong>Eventos Detetados</strong><br>Momentos específicos com anomalias ou picos de ruído identificados automaticamente.</div></div>
         <div class="guia-nav-item"><span class="guia-nav-icon">🗺️</span><div><strong>Mapa</strong><br>Localização geográfica das estações e respetivos dados em tempo real.</div></div>
         <div class="guia-nav-item"><span class="guia-nav-icon">📘</span><div><strong>Guia</strong><br>Esta página, com instruções e explicações técnicas.</div></div>
@@ -90,11 +91,13 @@
       </div>
       <p>Os principais indicadores exibidos incluem:</p>
       <ul>
-        <li><strong>LAeq:</strong> nível médio contínuo de ruído (ponderação A).</li>
-        <li><strong>LAFmax:</strong> valor máximo instantâneo (ponderação A, tempo rápido).</li>
-        <li><strong>LAFmin:</strong> valor mínimo registado no intervalo selecionado.</li>
-        <li><strong>LCpeak:</strong> pico máximo ponderado em C — útil para eventos impulsivos (ex: queda de um objeto, porta batida).</li>
-        <li><strong>BT63 – BT20000:</strong> distribuição espectral em bandas de 1/3 de oitava.</li>
+        <li><strong>LAeq:</strong> nível sonoro contínuo equivalente (ponderação A).</li>
+        <li><strong>LAFmax:</strong> valor máximo (ponderação A, tempo rápido).</li>
+        <li><strong>LAFmin:</strong> valor mínimo (ponderação A, tempo rápido).</li>
+        <li><strong>LCpeak:</strong> nível de pico (ponderação C) - útil para eventos impulsivos (ex: queda de um objeto, porta batida).</li>
+        <li><strong>L<sub>den</sub>:</strong> indicador oficial da Diretiva 2002/49/CE, que pondera o ruído por período do dia (dia, entardecer, noite) com penalizações para os períodos mais sensíveis.</li>
+        <li><strong>L<sub>n</sub>:</strong> indicador oficial da Diretiva 2002/49/CE, que pondera o ruído no período da noite.</li>
+        <li><strong>BT63 – BT20000:</strong> níveis sonoros (Leq) em bandas de 1/3 de oitava.</li>
       </ul>
       <p>Passe o cursor sobre os gráficos para ver os valores detalhados em cada ponto.</p>
       <div class="tip-box">💡 <strong>Dica:</strong> Combine a análise temporal com a página de Estatísticas para identificar padrões comportamentais e horários críticos ao longo de semanas ou meses.</div>
@@ -128,24 +131,8 @@
         exatamente os resultados apresentados no ecrã — calendário mensal ou tabela semanal,
         consoante a vista ativa — incluindo os totais de eventos detetados por dia.
       </p>
-      <p>
-        Para dados brutos ao segundo de um intervalo específico, consulte o técnico responsável
-        pela exportação completa via API.
-      </p>
     </section>
 
-    <section id="termos" class="guia-card">
-      <div class="guia-card-head">
-        <span class="guia-num">7</span>
-        <h2>Termos Técnicos Comuns</h2>
-      </div>
-      <ul>
-        <li><strong>LAeq:</strong> nível equivalente contínuo de ruído, ponderado A.</li>
-        <li><strong>LZeq / LCeq:</strong> níveis médios com outras ponderações (Z = linear, C = baixa frequência).</li>
-        <li><strong>L<sub>den</sub>:</strong> indicador oficial da Diretiva 2002/49/CE, que pondera o ruído por período do dia (dia, entardecer, noite) com penalizações para os períodos mais sensíveis.</li>
-        <li><strong>BTx:</strong> Bandas de Terço de Oitava (ex: BT500 representa a faixa centrada nos 500 Hz).</li>
-      </ul>
-    </section>
 
   </div>
 </main>

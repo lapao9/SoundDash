@@ -1,7 +1,7 @@
 {% set active_page = 'home' %}
 {% extends 'base.html' %}
 
-{% block title %}SoundDashHosp - Página Inicial{% endblock %}
+{% block title %}SoundPlattform - Página Inicial{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}" />
@@ -12,7 +12,7 @@
 <section class="hp-hero">
   <div class="container">
     <div class="hp-eyebrow">Monitorização Acústica Distribuída</div>
-    <h1 class="hp-title">O ruído hospitalar,<br>finalmente visível.</h1>
+    <h1 class="hp-title">O ruído hospitalar/ambiental, <br>finalmente visível.</h1>
     <p class="hp-subtitle">
       Medição contínua, análise histórica e reconfiguração remota de estações acústicas —
       para um ambiente mais silencioso e mais saudável.
@@ -35,15 +35,15 @@
     <div class="hp-stats-grid">
       <div class="hp-stat">
         <div class="hp-stat-num">16 Hz</div>
-        <div class="hp-stat-lbl">frequência de amostragem por estação</div>
+        <div class="hp-stat-lbl">amostragem de dados por estação</div>
       </div>
       <div class="hp-stat">
         <div class="hp-stat-num">24 / 7</div>
         <div class="hp-stat-lbl">recolha contínua, sem interrupções</div>
       </div>
       <div class="hp-stat">
-        <div class="hp-stat-num">L<sub>den</sub></div>
-        <div class="hp-stat-lbl">indicador oficial, conforme a Diretiva 2002/49/CE</div>
+        <div class="hp-stat-num">L<sub>den</sub>, L<sub>n</sub></div>
+        <div class="hp-stat-lbl">indicadores sonoros, conforme a Diretiva 2002/49/CE</div>
       </div>
       <div class="hp-stat">
         <div class="hp-stat-num">ISO 1996</div>
@@ -74,7 +74,7 @@
           <div class="feature-badge">Novo</div>
           <div class="feature-icon">📅</div>
           <h3>Estatísticas</h3>
-          <p>Calendário mensal e vista semanal com padrões de longo prazo, L<sub>den</sub> e exportação para CSV.</p>
+          <p>Calendário mensal e vista semanal com padrões de longo prazo, L<sub>den</sub>/L<sub>den</sub> e exportação para CSV.</p>
         </a>
       </div>
       <div class="col-md-6 col-lg-4">
@@ -88,7 +88,7 @@
         <a href="/eventos" class="feature-card">
           <div class="feature-icon">🔔</div>
           <h3>Eventos Detetados</h3>
-          <p>Deteção automática de picos e anomalias sonoras, com classificação por tipo.</p>
+          <p>Deteção automática de picos e eventos acústicos, com classificação por tipo.</p>
         </a>
       </div>
       <div class="col-md-6 col-lg-4">
@@ -141,14 +141,18 @@
   </section>
 
   <section id="sobre" class="about my-5 py-4">
-    <h2 class="hp-section-title text-center">Sobre o SoundDashHosp</h2>
+    <h2 class="hp-section-title text-center">Sobre o SoundPlatform</h2>
     <p class="text-center mx-auto" style="max-width:800px;">
-      O <strong>SoundDashHosp</strong> foi desenvolvido por alunos do ISEL, com orientação de docentes
-      do mesmo instituto, para responder à crescente necessidade de controlo do ruído em ambientes
-      hospitalares. A investigação mostra que níveis sonoros elevados prejudicam a recuperação dos
-      doentes e aumentam o stresse das equipas de saúde. A nossa plataforma reúne, num só lugar,
+      O <strong>SoundPlatform</strong> foi desenvolvido no laboratório de áudio e acústica, LAA, do ISEL, 
+      com a participação de alunos e a orientação de docentes e investigadores do mesmo instituto, 
+      para responder à crescente necessidade de controlo do ruído em ambientes
+      hospitalares e urbanos e sensibilização da população. Diversos estudos científicos
+      mostram que níveis sonoros elevados prejudicam a recuperação dos
+      doentes e aumentam o stresse das equipas de saúde, tendo efeitos nefastos na população em geral, nomeadamente 
+      na qualidade do sono. 
+      A nossa plataforma reúne, num só lugar,
       as ferramentas de monitorização, análise histórica e gestão remota necessárias para tornar
-      o ambiente sonoro hospitalar mais saudável — para quem cuida e para quem é cuidado.
+      o ambiente sonoro mais saudável.
     </p>
   </section>
 
