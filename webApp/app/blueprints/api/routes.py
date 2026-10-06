@@ -318,7 +318,7 @@ def get_stats_stream():
 
 
 # Download CSV: enviado em streaming, em blocos, para não esgotar a memória do servidor
-DOWNLOAD_MAX_HORAS = 24                      # intervalo máximo por download
+DOWNLOAD_MAX_HORAS = 72                      # intervalo máximo por download (≈1M linhas, limite do Excel)
 DOWNLOAD_BLOCO     = timedelta(minutes=30)   # tamanho de cada consulta ao InfluxDB
 DOWNLOAD_LINHAS_POR_ENVIO = 500              # linhas acumuladas antes de enviar ao browser
 

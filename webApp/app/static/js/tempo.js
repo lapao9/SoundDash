@@ -158,7 +158,7 @@ function atualizarGrafico() {
 // O servidor envia o CSV em streaming, por ordem cronológica. O progresso é calculado
 // a partir do TimeStamp (1.ª coluna) da última linha recebida face ao intervalo pedido.
 
-const DOWNLOAD_MAX_HORAS = 24;
+const DOWNLOAD_MAX_HORAS = 72;  // igual a DOWNLOAD_MAX_HORAS em api/routes.py
 let downloadCtrl = null;
 
 function setDownloadProgresso(pct, info) {
