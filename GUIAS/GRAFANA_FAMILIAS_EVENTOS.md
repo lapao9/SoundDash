@@ -8,18 +8,18 @@ A webapp tem botões **Hospital / Urbano** e envia a escolha ao Grafana no URL d
 
 ## Correspondência dos nomes
 
-| Campo (nº no gráfico) | Hospital | Urbano (família Aircraft) |
+| Campo | Hospital | Urbano (família Aircraft) |
 |---|---|---|
-| EventType1 (01) | Alarme | Aviões |
-| EventType2 (02) | Impacto | Comboios |
-| EventType3 (03) | Música | Gritos |
-| EventType4 (04) | Gritos | Impulsivo |
-| EventType5 (05) | Respiração | Música |
-| EventType6 (06) | Conversas | Conversas |
-| EventType7 (07) | Telefone | Buzinas |
-| EventType8 (08) | Líquidos | Cães a ladrar |
-| EventType9 (09) | Rodas | Atmosfera |
-| EventType10 (10) | Assobios | Automóvel |
+| EventType1 | Alarme | Aviões |
+| EventType2 | Impacto | Comboios |
+| EventType3 | Música | Gritos |
+| EventType4 | Gritos | Impulsivo |
+| EventType5 | Respiração | Música |
+| EventType6 | Conversas | Conversas |
+| EventType7 | Telefone | Buzinas |
+| EventType8 | Líquidos | Cães a ladrar |
+| EventType9 | Rodas | Atmosfera |
+| EventType10 | Assobios | Automóvel |
 
 A mesma tabela está em `webApp/app/static/js/utils.js` (`FAMILIAS_EVENTOS`). Se mudar um nome, alterar nos dois sítios.
 
@@ -42,34 +42,53 @@ A mesma tabela está em `webApp/app/static/js/utils.js` (`FAMILIAS_EVENTOS`). Se
 2. Substituir a query por:
 
 ```flux
+import "strings"
+
 familia = "${familia}"
 
-// Nomes numerados (01..10 = EventType1..10) para o heatmap manter sempre a mesma ordem
+// Carácter invisível (zero-width space). Serve só para fixar a ordem das linhas:
+// o heatmap ordena pelo nome, e cada linha leva um número diferente destes caracteres à frente.
+z = "\xe2\x80\x8b"
+
+// Posição de cada tipo: 10 = linha de cima ... 1 = penúltima, 0 = última (Evento detetado)
+pos = (f) =>
+  if f == "EventType1" then 10
+  else if f == "EventType2" then 9
+  else if f == "EventType3" then 8
+  else if f == "EventType4" then 7
+  else if f == "EventType5" then 6
+  else if f == "EventType6" then 5
+  else if f == "EventType7" then 4
+  else if f == "EventType8" then 3
+  else if f == "EventType9" then 2
+  else if f == "EventType10" then 1
+  else 0
+
 nome = (f) =>
   if familia == "urbano" then
-    (if f == "EventType1" then "01 Aviões"
-     else if f == "EventType2" then "02 Comboios"
-     else if f == "EventType3" then "03 Gritos"
-     else if f == "EventType4" then "04 Impulsivo"
-     else if f == "EventType5" then "05 Música"
-     else if f == "EventType6" then "06 Conversas"
-     else if f == "EventType7" then "07 Buzinas"
-     else if f == "EventType8" then "08 Cães a ladrar"
-     else if f == "EventType9" then "09 Atmosfera"
-     else if f == "EventType10" then "10 Automóvel"
+    (if f == "EventType1" then "Aviões"
+     else if f == "EventType2" then "Comboios"
+     else if f == "EventType3" then "Gritos"
+     else if f == "EventType4" then "Impulsivo"
+     else if f == "EventType5" then "Música"
+     else if f == "EventType6" then "Conversas"
+     else if f == "EventType7" then "Buzinas"
+     else if f == "EventType8" then "Cães a ladrar"
+     else if f == "EventType9" then "Atmosfera"
+     else if f == "EventType10" then "Automóvel"
      else if f == "EventDetect" then "Evento detetado"
      else f)
   else
-    (if f == "EventType1" then "01 Alarme"
-     else if f == "EventType2" then "02 Impacto"
-     else if f == "EventType3" then "03 Música"
-     else if f == "EventType4" then "04 Gritos"
-     else if f == "EventType5" then "05 Respiração"
-     else if f == "EventType6" then "06 Conversas"
-     else if f == "EventType7" then "07 Telefone"
-     else if f == "EventType8" then "08 Líquidos"
-     else if f == "EventType9" then "09 Rodas"
-     else if f == "EventType10" then "10 Assobios"
+    (if f == "EventType1" then "Alarme"
+     else if f == "EventType2" then "Impacto"
+     else if f == "EventType3" then "Música"
+     else if f == "EventType4" then "Gritos"
+     else if f == "EventType5" then "Respiração"
+     else if f == "EventType6" then "Conversas"
+     else if f == "EventType7" then "Telefone"
+     else if f == "EventType8" then "Líquidos"
+     else if f == "EventType9" then "Rodas"
+     else if f == "EventType10" then "Assobios"
      else if f == "EventDetect" then "Evento detetado"
      else f)
 
@@ -87,7 +106,7 @@ from(bucket: "SoundDashHosp")
     )
   )
   |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)
-  |> map(fn: (r) => ({ r with _field: nome(f: r._field) }))
+  |> map(fn: (r) => ({ r with _field: strings.repeat(v: z, i: pos(f: r._field)) + nome(f: r._field) }))
   // só tempo, valor e nome: sem isto o Grafana acrescenta o sensor ao nome ("Gritos sensor1")
   |> keep(columns: ["_time", "_value", "_field"])
 ```
@@ -96,14 +115,14 @@ from(bucket: "SoundDashHosp")
    - Os nomes passam a vir da query, por isso estas renomeações deixam de ser precisas.
    - Se ficassem, a regex `EventType1` também apanharia `EventType10` e podia trocar nomes.
    - Se algo correr mal antes de guardar, basta não gravar e recarregar a página para voltar ao estado anterior.
-4. **Ordem das linhas:** no painel da direita, secção **Y Axis**, ativar **Reverse**.
-   - O heatmap ordena as linhas pelo nome. Com os nomes numerados e o Reverse ligado, fica **01 em cima e 10 em baixo**, com "Evento detetado" na última linha.
-   - Se a ordem aparecer ao contrário, basta desligar o Reverse.
+4. **Eixo Y** (painel da direita, secção **Y Axis**):
+   - **Reverse:** desligado. A ordem já vem da query: tipo 1 em cima, tipo 10 em baixo, "Evento detetado" na última linha.
+   - **Axis width:** `120`. Fixa a largura da coluna dos nomes para nenhum ficar cortado à esquerda. O nome mais comprido é "Evento detetado"; se algum continuar cortado, aumentar para `140`.
 5. **Apply** e guardar o dashboard.
 6. Exportar o JSON do dashboard para a pasta `grafana/` do repositório, para ficar registado.
 
 ## Verificação
 
-- Na página *Monitorização em Tempo Real*, carregar em **Urbano**: o eixo deve mostrar, de cima para baixo, 01 Aviões, 02 Comboios, …, 10 Automóvel, Evento detetado.
-- Carregar em **Hospital**: deve mostrar 01 Alarme, 02 Impacto, …, 10 Assobios, Evento detetado, pela mesma ordem.
+- Na página *Monitorização em Tempo Real*, carregar em **Urbano**: o eixo deve mostrar, de cima para baixo, Aviões, Comboios, Gritos, …, Automóvel, Evento detetado, sem nomes cortados.
+- Carregar em **Hospital**: deve mostrar Alarme, Impacto, Música, …, Assobios, Evento detetado, pela mesma ordem.
 - A escolha fica guardada no browser e aplica-se também a *Monitorização por Período*, *Display* e *Eventos Detetados*.

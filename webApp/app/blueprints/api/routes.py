@@ -357,10 +357,16 @@ def download_csv():
                 sensor_tag[t] = record.values.get('sensor_id')
 
     # Colunas pela ordem do CSV gerado no sensor; campos desconhecidos vão no fim
+    # (as bandas podem estar no InfluxDB como 00040_Hz — via Node-RED — ou como BT40 — via influx_import.py)
     known   = [c for c in CSV_COLUNAS_SENSOR if c not in ('TimeStamp', 'SensorID')]
-    extras  = sorted(f for f in fields
-                     if f not in {CSV_CAMPO_INFLUX.get(c, c) for c in known}
-                     and f not in ('TimeStamp', 'SensorID'))
+    usados  = set(known) | set(CSV_CAMPO_INFLUX.values()) | {'TimeStamp', 'SensorID'}
+    extras  = sorted(f for f in fields if f not in usados)
+
+    def valor(row_data, coluna):
+        v = row_data.get(CSV_CAMPO_INFLUX.get(coluna, coluna))
+        if v is None:
+            v = row_data.get(coluna)
+        return '' if v is None else v
 
     # SensorID: tag do InfluxDB ou, em alternativa, o número no nome (Sensor5 -> 5.0)
     m = re.search(r'(\d+)$', measurement)
@@ -379,7 +385,7 @@ def download_csv():
         row_data = data_by_time[t]
         writer.writerow(
             [f'{t.timestamp():.2f}', fmt_sensor_id(sensor_tag.get(t, sensor_id_default))]
-            + [row_data.get(CSV_CAMPO_INFLUX.get(c, c), '') for c in known]
+            + [valor(row_data, c) for c in known]
             + [row_data.get(f, '') for f in extras]
             + [to_local(t).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]]
         )
