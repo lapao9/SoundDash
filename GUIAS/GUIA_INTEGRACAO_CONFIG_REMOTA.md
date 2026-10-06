@@ -104,7 +104,7 @@ pip3 install paho-mqtt
 #### 2.2. Copiar station_config_receiver.py
 ```bash
 # Copiar para o diretório do projeto da estação
-scp station_config_receiver.py laa@10.64.137.X:/home/laa/soundmeter/
+scp station_config_receiver.py laa@10.64.137.X:/home/laa/Sound/
 ```
 
 #### 2.3. Atualizar JSON de configuração
