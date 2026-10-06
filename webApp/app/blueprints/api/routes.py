@@ -317,6 +317,12 @@ def get_stats_stream():
     return Response(generate(), mimetype='application/json')
 
 
+# Download CSV: enviado em streaming, em blocos, para não esgotar a memória do servidor
+DOWNLOAD_MAX_HORAS = 24                      # intervalo máximo por download
+DOWNLOAD_BLOCO     = timedelta(minutes=30)   # tamanho de cada consulta ao InfluxDB
+DOWNLOAD_LINHAS_POR_ENVIO = 500              # linhas acumuladas antes de enviar ao browser
+
+
 @api_bp.route('/download')
 def download_csv():
     start       = request.args.get('start')
@@ -324,7 +330,10 @@ def download_csv():
     measurement = request.args.get('sensor_id')
 
     if not start or not end or not measurement:
-        return jsonify({'error': "Parâmetros 'start', 'end' e 'measurement' são obrigatórios."}), 400
+        return jsonify({'error': "Parâmetros 'start', 'end' e 'sensor_id' são obrigatórios."}), 400
+
+    if not re.fullmatch(r'[A-Za-z0-9_\-]+', measurement):
+        return jsonify({'error': 'Nome de sensor inválido.'}), 400
 
     try:
         start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
@@ -332,35 +341,31 @@ def download_csv():
     except ValueError:
         return jsonify({'error': 'Formato de data inválido.'}), 400
 
-    client    = get_client()
-    query_api = client.query_api()
-    query = f'''
-    from(bucket: "{INFLUXDB_BUCKET}")
-      |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
-      |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-    '''
-    try:
-        tables = query_api.query(query, org=INFLUXDB_ORG)
-    finally:
-        client.close()
+    if end_dt <= start_dt:
+        return jsonify({'error': 'A data de fim tem de ser posterior à de início.'}), 400
+    if end_dt - start_dt > timedelta(hours=DOWNLOAD_MAX_HORAS):
+        return jsonify({'error': f'O intervalo máximo para download é de {DOWNLOAD_MAX_HORAS} horas.'}), 400
 
-    data_by_time = defaultdict(dict)
-    sensor_tag   = {}
-    fields = set()
-    for table in tables:
-        for record in table.records:
-            t     = record.get_time()
-            field = record.get_field()
-            data_by_time[t][field] = record.get_value()
-            fields.add(field)
-            if t not in sensor_tag and record.values.get('sensor_id') is not None:
-                sensor_tag[t] = record.values.get('sensor_id')
+    client    = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG, timeout=120000)
+    query_api = client.query_api()
+
+    # Lista de campos do sensor no intervalo (para montar o cabeçalho antes de enviar dados)
+    try:
+        tabelas = query_api.query(f'''
+        import "influxdata/influxdb/schema"
+        schema.measurementFieldKeys(bucket: "{INFLUXDB_BUCKET}", measurement: "{measurement}",
+                                    start: {local_to_rfc3339(start_dt)}, stop: {local_to_rfc3339(end_dt)})
+        ''', org=INFLUXDB_ORG)
+        fields = {rec.get_value() for t in tabelas for rec in t.records}
+    except Exception as e:
+        client.close()
+        return jsonify({'error': f'Erro ao consultar o InfluxDB: {e}'}), 500
 
     # Colunas pela ordem do CSV gerado no sensor; campos desconhecidos vão no fim
     # (as bandas podem estar no InfluxDB como 00040_Hz — via Node-RED — ou como BT40 — via influx_import.py)
-    known   = [c for c in CSV_COLUNAS_SENSOR if c not in ('TimeStamp', 'SensorID')]
-    usados  = set(known) | set(CSV_CAMPO_INFLUX.values()) | {'TimeStamp', 'SensorID'}
-    extras  = sorted(f for f in fields if f not in usados)
+    known  = [c for c in CSV_COLUNAS_SENSOR if c not in ('TimeStamp', 'SensorID')]
+    usados = set(known) | set(CSV_CAMPO_INFLUX.values()) | {'TimeStamp', 'SensorID'}
+    extras = sorted(f for f in fields if f not in usados)
 
     def valor(row_data, coluna):
         v = row_data.get(CSV_CAMPO_INFLUX.get(coluna, coluna))
@@ -376,28 +381,64 @@ def download_csv():
         try:
             return float(v)
         except (TypeError, ValueError):
-            return v if v is not None else sensor_id_default
+            return sensor_id_default
 
-    output = StringIO()
-    writer = csv.writer(output)
-    writer.writerow(CSV_COLUNAS_SENSOR + extras + ['DataHora_Lisboa'])
-    for t in sorted(data_by_time.keys()):
-        row_data = data_by_time[t]
-        writer.writerow(
-            [f'{t.timestamp():.2f}', fmt_sensor_id(sensor_tag.get(t, sensor_id_default))]
-            + [valor(row_data, c) for c in known]
-            + [row_data.get(f, '') for f in extras]
-            + [to_local(t).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]]
-        )
+    def linhas_csv(rows):
+        buf = StringIO()
+        csv.writer(buf).writerows(rows)
+        return buf.getvalue()
+
+    def generate():
+        try:
+            yield linhas_csv([CSV_COLUNAS_SENSOR + extras + ['DataHora_Lisboa']])
+            bloco_ini = start_dt
+            while bloco_ini < end_dt:
+                bloco_fim = min(bloco_ini + DOWNLOAD_BLOCO, end_dt)
+                # pivot: uma linha por instante com todos os campos (em vez de um registo por valor)
+                query = f'''
+                from(bucket: "{INFLUXDB_BUCKET}")
+                  |> range(start: {local_to_rfc3339(bloco_ini)}, stop: {local_to_rfc3339(bloco_fim)})
+                  |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+                  |> drop(columns: ["_start", "_stop"])
+                  |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+                  |> group()
+                  |> sort(columns: ["_time"])
+                '''
+                rows = []
+                for rec in query_api.query_stream(query, org=INFLUXDB_ORG):
+                    v = rec.values
+                    t = rec.get_time()
+                    rows.append(
+                        [f'{t.timestamp():.2f}', fmt_sensor_id(v.get('sensor_id'))]
+                        + [valor(v, c) for c in known]
+                        + [v.get(f, '') if v.get(f) is not None else '' for f in extras]
+                        + [to_local(t).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]]
+                    )
+                    if len(rows) >= DOWNLOAD_LINHAS_POR_ENVIO:
+                        yield linhas_csv(rows)
+                        rows = []
+                if rows:
+                    yield linhas_csv(rows)
+                bloco_ini = bloco_fim
+        except Exception as e:
+            # O cabeçalho HTTP já foi enviado: assinala o erro no próprio ficheiro
+            yield f'# ERRO: download interrompido ({e})\n'
+        finally:
+            client.close()
 
     fmt_nome = lambda d: to_local(d).strftime('%Y%m%d_%H%M')
     filename = f'SoundData_{measurement}_{fmt_nome(start_dt)}_{fmt_nome(end_dt)}.csv'
 
-    output.seek(0)
     return Response(
-        output.getvalue(),
+        generate(),
         mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment;filename={filename}'}
+        headers={
+            'Content-Disposition': f'attachment;filename={filename}',
+            'X-Download-Start': f'{start_dt.timestamp():.0f}',
+            'X-Download-End':   f'{end_dt.timestamp():.0f}',
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',   # Nginx: não acumular a resposta (permite progresso em tempo real)
+        }
     )
 
 

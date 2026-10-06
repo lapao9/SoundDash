@@ -154,16 +154,109 @@ function atualizarGrafico() {
   }
 }
 
-function downloadCSV() {
+// ── Download CSV com barra de progresso ─────────────────────────────────────
+// O servidor envia o CSV em streaming, por ordem cronológica. O progresso é calculado
+// a partir do TimeStamp (1.ª coluna) da última linha recebida face ao intervalo pedido.
+
+const DOWNLOAD_MAX_HORAS = 24;
+let downloadCtrl = null;
+
+function setDownloadProgresso(pct, info) {
+  const barra = document.getElementById('downloadBarra');
+  const p = Math.max(0, Math.min(100, pct));
+  barra.style.width = `${p}%`;
+  barra.textContent = `${p.toFixed(0)}%`;
+  if (info) document.getElementById('downloadInfo').textContent = info;
+}
+
+function mostrarDownloadProgresso(on) {
+  document.getElementById('downloadProgresso').classList.toggle('d-none', !on);
+  document.getElementById('btnDownload').disabled = on;
+}
+
+function cancelarDownload() {
+  if (downloadCtrl) downloadCtrl.abort();
+}
+
+async function downloadCSV() {
   const start = document.getElementById('startDate').value;
   const end   = document.getElementById('endDate').value;
-  //para debug vou mostrar um alerta com as datas para confirmar:
   const sensors = getSelectedSensors();
   if (!start || !end || sensors.length !== 1) {
     alert('Por favor seleciona um único sensor e datas válidas.');
     return;
   }
-  window.location.href = `/api/download?start=${new Date(start).toISOString()}&end=${new Date(end).toISOString()}&sensor_id=${sensors[0]}`;
+  const startD = new Date(start), endD = new Date(end);
+  if (endD <= startD) { alert('A data de fim tem de ser posterior à de início.'); return; }
+  if ((endD - startD) / 3600000 > DOWNLOAD_MAX_HORAS) {
+    alert(`O intervalo máximo para download é de ${DOWNLOAD_MAX_HORAS} horas.`);
+    return;
+  }
+  if (downloadCtrl) return;  // já há um download em curso
+
+  const url = `/api/download?start=${startD.toISOString()}&end=${endD.toISOString()}&sensor_id=${encodeURIComponent(sensors[0])}`;
+  const t0 = startD.getTime() / 1000, t1 = endD.getTime() / 1000;
+
+  downloadCtrl = new AbortController();
+  mostrarDownloadProgresso(true);
+  setDownloadProgresso(0, 'A preparar...');
+
+  try {
+    const res = await fetch(url, { signal: downloadCtrl.signal });
+    if (!res.ok) {
+      const erro = await res.json().catch(() => ({}));
+      throw new Error(erro.error || `Erro HTTP ${res.status}`);
+    }
+
+    const disp = res.headers.get('Content-Disposition') || '';
+    const nome = (disp.match(/filename=([^;]+)/) || [])[1] || `SoundData_${sensors[0]}.csv`;
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    const partes  = [];
+    let recebidos = 0, resto = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      partes.push(value);
+      recebidos += value.length;
+
+      const texto = resto + decoder.decode(value, { stream: true });
+      if (texto.includes('# ERRO')) {
+        throw new Error(texto.slice(texto.indexOf('# ERRO') + 2).split('\n')[0]);
+      }
+      const fim = texto.lastIndexOf('\n');
+      if (fim < 0) { resto = texto; continue; }
+      const ultima = texto.slice(texto.lastIndexOf('\n', fim - 1) + 1, fim);
+      resto = texto.slice(fim + 1);
+
+      const ts = parseFloat(ultima);
+      const mb = (recebidos / 1048576).toFixed(1);
+      if (!isNaN(ts)) setDownloadProgresso((ts - t0) / (t1 - t0) * 100, `${mb} MB recebidos`);
+      else document.getElementById('downloadInfo').textContent = `${mb} MB recebidos`;
+    }
+
+    setDownloadProgresso(100, 'Concluído');
+    const blob = new Blob(partes, { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nome;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      document.getElementById('downloadInfo').textContent = 'Download cancelado.';
+    } else {
+      console.error('Erro no download:', err);
+      alert(`Não foi possível descarregar o CSV: ${err.message}`);
+    }
+  } finally {
+    downloadCtrl = null;
+    setTimeout(() => { if (!downloadCtrl) mostrarDownloadProgresso(false); }, 2500);
+  }
 }
 
 window.onload = () => {

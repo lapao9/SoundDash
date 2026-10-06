@@ -50,18 +50,18 @@ familia = "${familia}"
 // o heatmap ordena pelo nome, e cada linha leva um número diferente destes caracteres à frente.
 z = "\xe2\x80\x8b"
 
-// Posição de cada tipo: 10 = linha de cima ... 1 = penúltima, 0 = última (Evento detetado)
+// Posição de cada tipo: 10 = linha de cima (tipo 10) ... 1 = penúltima (tipo 1), 0 = última (Evento detetado)
 pos = (f) =>
-  if f == "EventType1" then 10
-  else if f == "EventType2" then 9
-  else if f == "EventType3" then 8
-  else if f == "EventType4" then 7
-  else if f == "EventType5" then 6
-  else if f == "EventType6" then 5
-  else if f == "EventType7" then 4
-  else if f == "EventType8" then 3
-  else if f == "EventType9" then 2
-  else if f == "EventType10" then 1
+  if f == "EventType1" then 1
+  else if f == "EventType2" then 2
+  else if f == "EventType3" then 3
+  else if f == "EventType4" then 4
+  else if f == "EventType5" then 5
+  else if f == "EventType6" then 6
+  else if f == "EventType7" then 7
+  else if f == "EventType8" then 8
+  else if f == "EventType9" then 9
+  else if f == "EventType10" then 10
   else 0
 
 nome = (f) =>
@@ -116,13 +116,13 @@ from(bucket: "SoundDashHosp")
    - Se ficassem, a regex `EventType1` também apanharia `EventType10` e podia trocar nomes.
    - Se algo correr mal antes de guardar, basta não gravar e recarregar a página para voltar ao estado anterior.
 4. **Eixo Y** (painel da direita, secção **Y Axis**):
-   - **Reverse:** desligado. A ordem já vem da query: tipo 1 em cima, tipo 10 em baixo, "Evento detetado" na última linha.
-   - **Axis width:** `120`. Fixa a largura da coluna dos nomes para nenhum ficar cortado à esquerda. O nome mais comprido é "Evento detetado"; se algum continuar cortado, aumentar para `140`.
+   - **Reverse:** desligado. A ordem já vem da query: tipo 10 em cima, tipo 1 em baixo, "Evento detetado" na última linha.
+   - **Axis width:** `130`. Fixa a largura da coluna dos nomes para nenhum ficar cortado à esquerda. É obrigatório: os caracteres invisíveis enganam o cálculo automático da largura. O nome mais comprido é "Evento detetado"; se algum continuar cortado, aumentar para `150`.
 5. **Apply** e guardar o dashboard.
 6. Exportar o JSON do dashboard para a pasta `grafana/` do repositório, para ficar registado.
 
 ## Verificação
 
-- Na página *Monitorização em Tempo Real*, carregar em **Urbano**: o eixo deve mostrar, de cima para baixo, Aviões, Comboios, Gritos, …, Automóvel, Evento detetado, sem nomes cortados.
-- Carregar em **Hospital**: deve mostrar Alarme, Impacto, Música, …, Assobios, Evento detetado, pela mesma ordem.
+- Na página *Monitorização em Tempo Real*, carregar em **Urbano**: o eixo deve mostrar, de cima para baixo, Automóvel, Atmosfera, Cães a ladrar, …, Comboios, Aviões, Evento detetado, sem nomes cortados.
+- Carregar em **Hospital**: deve mostrar Assobios, Rodas, Líquidos, …, Impacto, Alarme, Evento detetado, pela mesma ordem.
 - A escolha fica guardada no browser e aplica-se também a *Monitorização por Período*, *Display* e *Eventos Detetados*.
