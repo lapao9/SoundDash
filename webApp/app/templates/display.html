@@ -14,6 +14,10 @@
     <select id="sensorSelect" class="sensor-selector" onchange="atualizarGrafico()">
       <option disabled>A carregar...</option>
     </select>
+    <select id="familiaSelect" class="sensor-selector" title="Família de eventos sonoros" onchange="trocarFamilia(this.value)">
+      <option value="hospital">Eventos: Hospital</option>
+      <option value="urbano">Eventos: Urbano</option>
+    </select>
     <button id="backButton" class="back-button" onclick="window.location.href='/atual'"> Sair </button>
   </div>
 

@@ -1,11 +1,5 @@
 let intervalosGlobais = [];
-
-const nomesTipos = {
-  EventType1: 'Alarme',   EventType2: 'Impacto',    EventType3: 'Música',
-  EventType4: 'Gritos',   EventType5: 'Respiração',  EventType6: 'Conversas',
-  EventType7: 'Telefone', EventType8: 'Líquidos',    EventType9: 'Rodas',
-  EventType10: 'Assobios'
-};
+// Nomes dos tipos de evento: FAMILIAS_EVENTOS / nomeTipoEvento() em utils.js
 
 function agruparEventos(dados) {
   if (!dados.length) return [];
@@ -37,9 +31,21 @@ function contarTiposEvento(eventos) {
   return Object.entries(contagem).sort((a, b) => b[1] - a[1]).slice(0, 2);
 }
 
+function renderDetalhes(index) {
+  const topTipos = contarTiposEvento(intervalosGlobais[index].eventos);
+  let html = '<ul class="list-group mt-2">';
+  if (!topTipos.length) {
+    html += '<li class="list-group-item">Nenhum tipo de evento registado.</li>';
+  } else {
+    topTipos.forEach(([tipo]) => {
+      html += `<li class="list-group-item">${nomeTipoEvento(tipo)}</li>`;
+    });
+  }
+  html += '</ul>';
+  document.getElementById(`detalhes-${index}`).innerHTML = html;
+}
+
 function mostrarDetalhes(index) {
-  const grupo = intervalosGlobais[index];
-  const topTipos = contarTiposEvento(grupo.eventos);
   const div = document.getElementById(`detalhes-${index}`);
   if (div.innerHTML.trim() !== '') {
     div.innerHTML = '';
@@ -48,16 +54,15 @@ function mostrarDetalhes(index) {
   intervalosGlobais.forEach((_, i) => {
     if (i !== index) document.getElementById(`detalhes-${i}`).innerHTML = '';
   });
-  let html = '<ul class="list-group mt-2">';
-  if (!topTipos.length) {
-    html += '<li class="list-group-item">Nenhum tipo de evento registado.</li>';
-  } else {
-    topTipos.forEach(([tipo]) => {
-      html += `<li class="list-group-item">${nomesTipos[tipo] || tipo}</li>`;
-    });
-  }
-  html += '</ul>';
-  div.innerHTML = html;
+  renderDetalhes(index);
+}
+
+// Ao trocar de família, atualiza os detalhes que estiverem abertos
+function atualizarDetalhesAbertos() {
+  intervalosGlobais.forEach((_, i) => {
+    const div = document.getElementById(`detalhes-${i}`);
+    if (div && div.innerHTML.trim() !== '') renderDetalhes(i);
+  });
 }
 
 async function carregarEventos() {
@@ -108,6 +113,7 @@ async function carregarEventos() {
 }
 
 window.onload = () => {
+  renderFamiliaToggle('familiaToggle', atualizarDetalhesAbertos);
   carregarSensores('sensorSelect', null);
   const now = new Date();
   const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);

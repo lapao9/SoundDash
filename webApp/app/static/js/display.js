@@ -2,7 +2,7 @@ function atualizarGrafico() {
   const sensor = document.getElementById('sensorSelect').value;
   const sp = `var-sensorName=${sensor}`;
   document.getElementById('graficoLAEA').src = buildGrafanaURL(1,  'now-6m', 'now-1m', sp);
-  document.getElementById('NvlFreq').src     = buildGrafanaURL(13, 'now-6m', 'now-1m', sp);
+  document.getElementById('NvlFreq').src     = buildGrafanaURL(13, 'now-6m', 'now-1m', sp, familiaGrafanaParam());
   document.getElementById('Spectogram').src  = buildGrafanaURL(16, 'now-6m', 'now-1m', sp);
   document.getElementById('gaugePanel').src  = buildGrafanaURL(14, 'now-6m', 'now-1m', sp);
 }
@@ -25,7 +25,13 @@ async function atualizarClasses() {
   }
 }
 
+function trocarFamilia(familia) {
+  setFamiliaEventos(familia);
+  atualizarFamiliaIframe('NvlFreq');  // iframe do painel de tipos de eventos (painel 13)
+}
+
 window.onload = () => {
+  document.getElementById('familiaSelect').value = getFamiliaEventos();
   carregarSensores('sensorSelect', atualizarGrafico);
   atualizarClasses();
   setInterval(atualizarClasses, 5000);

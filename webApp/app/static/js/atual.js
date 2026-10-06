@@ -43,7 +43,7 @@ function atualizarGrafico() {
     document.getElementById('graficoLAEA').src  = buildGrafanaURL(1,  from, to, sensoresParams);
     document.getElementById('NvlFreq').src      = buildGrafanaURL(7,  from, to, sensoresParams);
     document.getElementById('Spectogram').src   = buildGrafanaURL(16, from, to, sensoresParams);
-    document.getElementById('Eventos').src      = buildGrafanaURL(13, from, to, sensoresParams);
+    document.getElementById('Eventos').src      = buildGrafanaURL(13, from, to, sensoresParams, familiaGrafanaParam());
     document.getElementById('Gauges').src       = buildGrafanaURL(14, from, to, sensoresParams);
   } else {
     const param = document.getElementById('paramSelect').value;
@@ -52,6 +52,7 @@ function atualizarGrafico() {
 }
 
 window.onload = () => {
+  renderFamiliaToggle('familiaToggle', () => atualizarFamiliaIframe('Eventos'));
   carregarSensores('sensorSelect', atualizarGrafico);
   setInterval(atualizarTabelaClasses, 2000);
 };

@@ -148,7 +148,7 @@ function atualizarGrafico() {
     document.getElementById('graficoLAEA').src  = buildGrafanaURL(1,  from, to, sp);
     document.getElementById('NvlFreq').src      = buildGrafanaURL(15, from, to, sp);
     document.getElementById('Espectogram').src  = buildGrafanaURL(16, from, to, sp);
-    document.getElementById('Eventos').src      = buildGrafanaURL(13, from, to, sp);
+    document.getElementById('Eventos').src      = buildGrafanaURL(13, from, to, sp, familiaGrafanaParam());
     calcularEstatisticas();
     calcularLden();
   }
@@ -167,6 +167,7 @@ function downloadCSV() {
 }
 
 window.onload = () => {
+  renderFamiliaToggle('familiaToggle', () => atualizarFamiliaIframe('Eventos'));
   carregarSensores('sensorSelect', atualizarGrafico);
   const now = new Date();
   const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
