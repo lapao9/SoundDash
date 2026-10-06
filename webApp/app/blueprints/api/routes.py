@@ -5,55 +5,71 @@ from collections import defaultdict
 from io import StringIO
 import csv
 import json
-from tqdm import tqdm
+import re
 
 from influxdb_client import InfluxDBClient
 from app.config import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET
 from app.services.influx import (
-    get_client, to_rfc3339, parse_interval_to_days, pode_usar_bucket_agregado
+    get_client, local_to_rfc3339, to_local, parse_interval_to_days, pode_usar_bucket_agregado
 )
 from app.services.acoustics import (
-    calcular_media_db, calcular_lden_db, fetch_valores_db, fetch_laeq_horario,
-    fetch_hourly_campos, fetch_event_intervals_by_hour
+    calcular_media_db, calcular_lden_db, fetch_serie_db,
+    fetch_hourly_campos, fetch_event_intervals_by_hour, flux_media_energetica
 )
 from app.services.system_config import load_system_config, save_system_config
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
 
+# Ordem das colunas do CSV gerado no sensor (SoundMeterSemaf_ver3_class.py)
+_BANDAS = ['25', '31_5', '40', '50', '63', '80', '100', '125', '160', '200', '250', '315',
+           '400', '500', '630', '800', '1000', '1250', '1600', '2000', '2500', '3150',
+           '4000', '5000', '6300', '8000', '10000', '12500', '16000', '20000']
+
+CSV_COLUNAS_SENSOR = (
+    ['TimeStamp', 'SensorID', 'LAEZ', 'LAEC', 'LAEA', 'LZpeak', 'LZpeakT', 'LCpeak', 'LCpeakT',
+     'LApeak', 'LApeakT', 'LAFmax', 'LAFmaxT', 'LAFmin', 'LAFminT', 'LZeq', 'LCeq', 'LAeq']
+    + [f'BT{b}' for b in _BANDAS]
+    + ['LAEA_SLOW_Event', 'EventDetect'] + [f'EventType{i}' for i in range(1, 11)]
+    + ['Class1ID', 'Class1Score', 'Class2ID', 'Class2Score', 'Class3ID', 'Class3Score']
+)
+
+# Nome da coluna do sensor -> nome do campo no InfluxDB (bandas: BT40 -> 00040_Hz, BT31_5 -> 00031.5_Hz)
+CSV_CAMPO_INFLUX = {
+    f'BT{b}': ('00031.5_Hz' if b == '31_5' else f'{int(b):05d}_Hz') for b in _BANDAS
+}
+
+
 @api_bp.route('/lden')
 def get_lden():
     start_str  = request.args.get('start')
-    end_str    = request.args.get('end')
     sensor     = request.args.get('sensor_id')
 
-    if not start_str or not end_str or not sensor:
-        return jsonify({'error': "Parâmetros 'start', 'end' e 'sensor_id' são obrigatórios"}), 400
+    if not start_str or not sensor:
+        return jsonify({'error': "Parâmetros 'start' e 'sensor_id' são obrigatórios"}), 400
 
+    # 'start' identifica o dia (hora local de Lisboa); só a parte da data conta
     try:
-        start_dt = datetime.fromisoformat(start_str.replace('Z', ''))
-        end_dt   = datetime.fromisoformat(end_str.replace('Z', ''))
+        dia = datetime.fromisoformat(start_str[:10])
     except Exception:
         return jsonify({'error': 'Formato de data inválido'}), 400
 
-    d_start = start_dt.replace(hour=0,  minute=0,  second=0,  microsecond=0)
-    d7      = start_dt.replace(hour=7,  minute=0,  second=0,  microsecond=0)
-    d8      = start_dt.replace(hour=8,  minute=0,  second=0,  microsecond=0)
-    d16     = start_dt.replace(hour=16, minute=0,  second=0,  microsecond=0)
-    d19     = start_dt.replace(hour=19, minute=0,  second=0,  microsecond=0)
-    d23     = start_dt.replace(hour=23, minute=0,  second=0,  microsecond=0)
-    d_end   = start_dt.replace(hour=23, minute=59, second=59, microsecond=999999)
+    serie = fetch_serie_db(sensor, 'LAEA',
+                           local_to_rfc3339(dia),
+                           local_to_rfc3339(dia + timedelta(days=1)))
 
-    # Hospital shifts: T1=00-08h, T2=08-16h, T3=16-00h
-    v_t1 = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d_start), to_rfc3339(d8))
-    v_t2 = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d8),      to_rfc3339(d16))
-    v_t3 = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d16),     to_rfc3339(d_end))
+    def vals(cond):
+        return [v for t, v in serie if cond(t.hour)]
 
-    # Official Lden periods (EU 2002/49/EC): Ld=07-19h, Le=19-23h, Ln=23-07h
-    v_ld = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d7),      to_rfc3339(d19))
-    v_le = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d19),     to_rfc3339(d23))
-    v_ln = fetch_valores_db(sensor, 'LAEA', to_rfc3339(d_start), to_rfc3339(d7)) + \
-           fetch_valores_db(sensor, 'LAEA', to_rfc3339(d23),     to_rfc3339(d_end))
+    # Hospital shifts (local time): T1=00-08h, T2=08-16h, T3=16-00h
+    v_t1 = vals(lambda h: h < 8)
+    v_t2 = vals(lambda h: 8 <= h < 16)
+    v_t3 = vals(lambda h: h >= 16)
+
+    # Official Lden periods (EU 2002/49/EC, local time): Ld=07-19h, Le=19-23h, Ln=23-07h
+    v_ld = vals(lambda h: 7 <= h < 19)
+    v_le = vals(lambda h: 19 <= h < 23)
+    v_ln = vals(lambda h: h >= 23 or h < 7)
 
     Lturno1 = calcular_media_db(v_t1)
     Lturno2 = calcular_media_db(v_t2)
@@ -203,11 +219,11 @@ def get_stats():
 
     queries = {
         'laea': f'''
+            import "math"
             from(bucket: "{b_laea}")
               |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
               |> filter(fn: (r) => r["_measurement"] == "{m_laea}")
-              |> filter(fn: (r) => r["_field"] == "LAEA")
-              |> aggregateWindow(every: {window}, fn: mean, createEmpty: false)
+              |> filter(fn: (r) => r["_field"] == "LAEA"){flux_media_energetica(window)}
               |> limit(n: {limit})
         ''',
         'lcpeak': f'''
@@ -311,8 +327,8 @@ def download_csv():
         return jsonify({'error': "Parâmetros 'start', 'end' e 'measurement' são obrigatórios."}), 400
 
     try:
-        datetime.fromisoformat(start.replace('Z', '+00:00'))
-        datetime.fromisoformat(end.replace('Z', '+00:00'))
+        start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+        end_dt   = datetime.fromisoformat(end.replace('Z', '+00:00'))
     except ValueError:
         return jsonify({'error': 'Formato de data inválido.'}), 400
 
@@ -323,30 +339,59 @@ def download_csv():
       |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
       |> filter(fn: (r) => r["_measurement"] == "{measurement}")
     '''
-    tables = query_api.query(query, org=INFLUXDB_ORG)
+    try:
+        tables = query_api.query(query, org=INFLUXDB_ORG)
+    finally:
+        client.close()
 
     data_by_time = defaultdict(dict)
+    sensor_tag   = {}
     fields = set()
     for table in tables:
         for record in table.records:
-            timestamp = record.get_time().isoformat()
-            field     = record.get_field()
-            value     = record.get_value()
-            data_by_time[timestamp][field] = value
+            t     = record.get_time()
+            field = record.get_field()
+            data_by_time[t][field] = record.get_value()
             fields.add(field)
+            if t not in sensor_tag and record.values.get('sensor_id') is not None:
+                sensor_tag[t] = record.values.get('sensor_id')
 
-    fields = list(fields)
+    # Colunas pela ordem do CSV gerado no sensor; campos desconhecidos vão no fim
+    known   = [c for c in CSV_COLUNAS_SENSOR if c not in ('TimeStamp', 'SensorID')]
+    extras  = sorted(f for f in fields
+                     if f not in {CSV_CAMPO_INFLUX.get(c, c) for c in known}
+                     and f not in ('TimeStamp', 'SensorID'))
+
+    # SensorID: tag do InfluxDB ou, em alternativa, o número no nome (Sensor5 -> 5.0)
+    m = re.search(r'(\d+)$', measurement)
+    sensor_id_default = float(m.group(1)) if m else measurement
+
+    def fmt_sensor_id(v):
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return v if v is not None else sensor_id_default
+
     output = StringIO()
     writer = csv.writer(output)
-    writer.writerow(['timestamp'] + fields)
-    for timestamp in tqdm(sorted(data_by_time.keys()), desc='A Processar: '):
-        writer.writerow([timestamp] + [data_by_time[timestamp].get(f, '') for f in fields])
+    writer.writerow(CSV_COLUNAS_SENSOR + extras + ['DataHora_Lisboa'])
+    for t in sorted(data_by_time.keys()):
+        row_data = data_by_time[t]
+        writer.writerow(
+            [f'{t.timestamp():.2f}', fmt_sensor_id(sensor_tag.get(t, sensor_id_default))]
+            + [row_data.get(CSV_CAMPO_INFLUX.get(c, c), '') for c in known]
+            + [row_data.get(f, '') for f in extras]
+            + [to_local(t).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]]
+        )
+
+    fmt_nome = lambda d: to_local(d).strftime('%Y%m%d_%H%M')
+    filename = f'SoundData_{measurement}_{fmt_nome(start_dt)}_{fmt_nome(end_dt)}.csv'
 
     output.seek(0)
     return Response(
-        output,
+        output.getvalue(),
         mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment;filename=SoundData_{start}_{end}.csv'}
+        headers={'Content-Disposition': f'attachment;filename={filename}'}
     )
 
 
@@ -360,14 +405,17 @@ def get_calendario():
         return jsonify({'error': "Parâmetros obrigatórios: start, end, sensor_id"}), 400
 
     try:
-        start_dt = datetime.fromisoformat(start_str)
-        end_dt   = datetime.fromisoformat(end_str).replace(hour=23, minute=59, second=59)
+        start_dt = datetime.fromisoformat(start_str[:10])
+        end_dt   = datetime.fromisoformat(end_str[:10])
     except ValueError:
         return jsonify({'error': 'Formato de data inválido. Use YYYY-MM-DD'}), 400
 
-    raw = fetch_hourly_campos(sensor, to_rfc3339(start_dt), to_rfc3339(end_dt),
-                              ['LAEA', 'LCpeak', 'LAFmax', 'LAFmin'])
-    ev_counts = fetch_event_intervals_by_hour(sensor, to_rfc3339(start_dt), to_rfc3339(end_dt))
+    # Dias em hora local: [start 00:00, end+1 00:00[ (Lisboa)
+    start_rfc = local_to_rfc3339(start_dt)
+    end_rfc   = local_to_rfc3339(end_dt + timedelta(days=1))
+
+    raw = fetch_hourly_campos(sensor, start_rfc, end_rfc, ['LAEA', 'LCpeak', 'LAFmax', 'LAFmin'])
+    ev_counts = fetch_event_intervals_by_hour(sensor, start_rfc, end_rfc)
 
     by_day = defaultdict(lambda: defaultdict(list))
     for item in raw:
@@ -447,20 +495,17 @@ def get_semanal():
         return jsonify({'error': "Parâmetros obrigatórios: start (YYYY-MM-DD), sensor_id"}), 400
 
     try:
-        ref = datetime.fromisoformat(date_str)
+        ref = datetime.fromisoformat(date_str[:10])
     except ValueError:
         return jsonify({'error': 'Formato de data inválido. Use YYYY-MM-DD'}), 400
 
     # Calculate Sunday–Saturday week
-    week_start = ref - timedelta(days=ref.weekday() + 1) if ref.weekday() != 6 else ref
-    if ref.weekday() == 6:
-        week_start = ref
-    else:
-        week_start = ref - timedelta(days=(ref.weekday() + 1) % 7)
-    week_end = week_start + timedelta(days=6)
+    week_start = ref - timedelta(days=(ref.weekday() + 1) % 7)
+    week_end   = week_start + timedelta(days=6)
 
-    start_rfc = to_rfc3339(week_start.replace(hour=0,  minute=0,  second=0))
-    end_rfc   = to_rfc3339(week_end.replace(  hour=23, minute=59, second=59))
+    # Semana em hora local: [domingo 00:00, domingo seguinte 00:00[ (Lisboa)
+    start_rfc = local_to_rfc3339(week_start)
+    end_rfc   = local_to_rfc3339(week_start + timedelta(days=7))
 
     raw      = fetch_hourly_campos(sensor, start_rfc, end_rfc, ['LAEA', 'LCpeak'])
     ev_counts = fetch_event_intervals_by_hour(sensor, start_rfc, end_rfc)
@@ -506,7 +551,7 @@ def get_semanal():
             lcpeak_vals = [idx[d][h]['LCpeak'] for h in hours if 'LCpeak' in idx[d].get(h, {})]
             ev_total    = sum(ev_counts.get((d, h), 0) for h in hours)
             laeq   = calcular_media_db(laea_vals)
-            lcpeak = calcular_media_db(lcpeak_vals)
+            lcpeak = max(lcpeak_vals) if lcpeak_vals else None
             row['data'][d] = {
                 'laeq':   round(laeq,   1) if laeq   is not None else None,
                 'lcpeak': round(lcpeak, 1) if lcpeak is not None else None,

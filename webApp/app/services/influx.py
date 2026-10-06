@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from influxdb_client import InfluxDBClient
-from app.config import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG
+from app.config import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, LOCAL_TZ
 
 
 CAMPOS_AGREGADOS = [
@@ -21,6 +21,20 @@ def get_client():
 
 def to_rfc3339(dt: datetime) -> str:
     return dt.isoformat("T") + "Z"
+
+
+def local_to_rfc3339(dt: datetime) -> str:
+    """Interpreta uma data sem fuso como hora de Lisboa e devolve RFC3339 em UTC."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=LOCAL_TZ)
+    return dt.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+
+
+def to_local(dt: datetime) -> datetime:
+    """Converte um datetime UTC (vindo do InfluxDB) para hora de Lisboa."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(LOCAL_TZ)
 
 
 def parse_interval_to_days(interval_str: str) -> float:

@@ -9,13 +9,9 @@ async function calcularLden() {
   if (!end || sensors.length !== 1) return;
 
   const sensor = sensors[0];
-  const endDate = new Date(end);
-  const startDate = new Date(endDate);
-  startDate.setUTCDate(endDate.getDate() - 1);
-  startDate.setUTCHours(0, 0, 0, 0);
-  const finishDate = new Date(endDate);
-  finishDate.setUTCDate(endDate.getDate() - 1);
-  finishDate.setUTCHours(23, 59, 59, 999);
+  // Dia anterior à data final, em hora local (o backend interpreta a data como dia de Lisboa)
+  const startDate = new Date(end);
+  startDate.setDate(startDate.getDate() - 1);
 
   const diasSemana = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
   const nomeDia = diasSemana[startDate.getDay()];
@@ -24,7 +20,7 @@ async function calcularLden() {
   const ano = startDate.getFullYear();
   document.getElementById('diaAnterior').textContent = `${nomeDia}, ${dia}/${mes}/${ano}`;
 
-  fetch(`/api/lden?start=${startDate.toISOString()}&end=${finishDate.toISOString()}&sensor_id=${sensor}`)
+  fetch(`/api/lden?start=${ano}-${mes}-${dia}&sensor_id=${sensor}`)
     .then(resp => resp.json())
     .then(d => {
       const fmt = v => v !== null && v !== undefined ? v.toFixed(1) + ' dB' : '—';

@@ -118,7 +118,7 @@ SoundDash/
 
 | Componente | Versão testada | Notas                                                            |
 | ---------- | --------------- | ---------------------------------------------------------------- |
-| Python     | 3.11+           | `pip install flask flask-login influxdb-client paho-mqtt tqdm` |
+| Python     | 3.11+           | `pip install flask flask-login influxdb-client paho-mqtt pandas requests tzdata` |
 | InfluxDB   | 2.7             | Org:`ISEL`, bucket: `SoundDashHosp`                          |
 | Mosquitto  | 2.x             | Portas 1881 (dados) e 1884 (config remota)                       |
 | Node-RED   | 3.x             | Flow MQTT In → InfluxDB Out                                     |
@@ -265,17 +265,18 @@ Devolve séries de `laea`, `lcpeak`, `lafmax`, `lafmin` com agregação por jane
 ### Indicador Lden (Directiva Europeia)
 
 ```
-GET /api/lden?sensor_id=Sensor1&start=2025-01-15T00:00Z&end=2025-01-15T23:59Z
+GET /api/lden?sensor_id=Sensor1&start=2025-01-15
 ```
 
-Calcula o Lden do dia especificado com as ponderações normalizadas:
+Calcula, para o dia indicado (hora local de Lisboa), os níveis por turno e o Lden com as ponderações normalizadas (Diretiva 2002/49/CE). Todas as médias são energéticas (`10·log10(média(10^(L/10)))`):
 
-- Dia (08h–20h): +0 dB
-- Tarde (20h–23h): +5 dB
-- Noite (23h–08h): +10 dB
+- Turnos: T1 00–08h, T2 08–16h, T3 16–24h
+- Dia (07h–19h): +0 dB
+- Tarde (19h–23h): +5 dB
+- Noite (23h–07h): +10 dB
 
 ```json
-{ "laeq_day": 58.3, "laeq_evening": 52.1, "laeq_night": 44.7, "lden": 59.2 }
+{ "turno1": 45.2, "turno2": 55.0, "turno3": 51.3, "ld": 58.3, "le": 52.1, "ln": 44.7, "lden": 59.2 }
 ```
 
 ---
@@ -314,7 +315,7 @@ Top 3 classes de áudio detectadas nos últimos 5 minutos.
 GET /api/download?sensor_id=Sensor1&start=2025-01-15T00:00Z&end=2025-01-16T00:00Z
 ```
 
-Exporta todos os campos do sensor no intervalo especificado como ficheiro `.csv`.
+Exporta todos os campos do sensor no intervalo especificado como ficheiro `.csv`, com as colunas pela mesma ordem do CSV gerado no sensor (`TimeStamp` em epoch, `SensorID`, `LAEZ`, ..., `BT25`…`BT20000`, ..., `Class3Score`) e uma última coluna `DataHora_Lisboa` com a hora local legível.
 
 ---
 
@@ -432,6 +433,9 @@ Copiar o hash gerado para `webApp/users.json`:
 ---
 
 ## Notas
+
+- Datas e horas: o InfluxDB guarda tudo em UTC; a webapp converte para `Europe/Lisbon` (dias, turnos, Ld/Le/Ln). No Windows é necessário o pacote `tzdata`.
+- Queries do Grafana com média energética: ver `GUIAS/GRAFANA_MEDIAS_ENERGETICAS.md`.
 
 - `debug=True` em `run.py` — desactivar em produção
 - O token InfluxDB e a `SECRET_KEY` estão em `webApp/app/config.py` — não commitir credenciais reais

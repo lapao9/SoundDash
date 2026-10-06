@@ -1,4 +1,8 @@
 import os
+from zoneinfo import ZoneInfo
+
+# Fuso horário local (o InfluxDB guarda tudo em UTC)
+LOCAL_TZ = ZoneInfo("Europe/Lisbon")
 
 # InfluxDB
 INFLUXDB_URL   = "http://10.64.137.6:8086"
