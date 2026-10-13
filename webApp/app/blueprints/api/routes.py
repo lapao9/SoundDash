@@ -108,7 +108,10 @@ def get_indicadores():
         return jsonify({'error': 'A data de fim tem de ser posterior à de início.'}), 400
 
     try:
-        v = fetch_indicadores_intervalo(sensor, local_to_rfc3339(start_dt), local_to_rfc3339(end_dt))
+        # Percentis exatos até 72 h; acima disso, estimativa (ordenar milhões de amostras sobrecarrega o InfluxDB)
+        exatos = (end_dt - start_dt) <= timedelta(hours=72)
+        v = fetch_indicadores_intervalo(sensor, local_to_rfc3339(start_dt), local_to_rfc3339(end_dt), exatos)
+        v['percentis_exatos'] = exatos
     except Exception as e:
         return jsonify({'error': f'Erro ao consultar o InfluxDB: {e}'}), 500
 

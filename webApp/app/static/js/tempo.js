@@ -109,13 +109,44 @@ function atualizarKDE(data) {
   }, { responsive: true });
 }
 
-function atualizarGrafico() {
+// ── Proteção contra sobrecarga do InfluxDB/Grafana ─────────────────────────
+// Cada atualização recarrega 4 painéis Grafana + 3 pedidos à API, todos sobre dados raw.
+// - As mudanças de data só disparam a atualização 1,5 s depois da última alteração
+//   (o campo de data dispara um evento por cada parte editada: dia, mês, hora, ...).
+// - Não repete pedidos iguais ao último.
+// - Limita o intervalo dos gráficos (MAX_DIAS_GRAFICOS).
+const MAX_DIAS_GRAFICOS = 31;
+const ATRASO_ATUALIZACAO_MS = 1500;
+let temporizadorAtualizacao = null;
+let ultimaAtualizacao = '';
+
+function agendarAtualizacao() {
+  clearTimeout(temporizadorAtualizacao);
+  temporizadorAtualizacao = setTimeout(() => atualizarGrafico(), ATRASO_ATUALIZACAO_MS);
+}
+
+function atualizarGrafico(forcar = false) {
+  clearTimeout(temporizadorAtualizacao);
   const start = document.getElementById('startDate').value;
   const end   = document.getElementById('endDate').value;
   const from  = start ? new Date(start).getTime() : 'now-5m';
   const to    = end   ? new Date(end).getTime()   : 'now';
   const sensors = getSelectedSensors();
   const showComparativo = sensors.length > 1;
+
+  if (start && end) {
+    if (to <= from) return;  // ainda a editar as datas (fim antes do início)
+    const dias = (to - from) / 86400000;
+    if (dias > MAX_DIAS_GRAFICOS) {
+      alert(`O intervalo máximo para os gráficos é de ${MAX_DIAS_GRAFICOS} dias ` +
+            `(escolheu ${dias.toFixed(1)}). Para períodos maiores use a página Estatísticas.`);
+      return;
+    }
+  }
+
+  const chave = [start, end, sensors.join(','), document.getElementById('parametroSelect').value].join('|');
+  if (!forcar && chave === ultimaAtualizacao) return;
+  ultimaAtualizacao = chave;
 
   document.getElementById('graficoContainer').style.display   = showComparativo ? 'none'  : 'block';
   document.getElementById('multiSensorGrafico').style.display = showComparativo ? 'block' : 'none';
@@ -248,14 +279,15 @@ async function downloadCSV() {
 
 window.onload = () => {
   renderFamiliaToggle('familiaToggle', () => atualizarFamiliaIframe('Eventos'));
-  carregarSensores('sensorSelect', atualizarGrafico);
+  carregarSensores('sensorSelect', () => atualizarGrafico());
   const now = new Date();
   const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);
   document.getElementById('endDate').value   = formatDatetimeLocal(now);
   document.getElementById('startDate').value = formatDatetimeLocal(fiveMinAgo);
 
-  document.getElementById('parametroSelect').addEventListener('change', atualizarGrafico);
-  document.getElementById('sensorSelect').addEventListener('change', atualizarGrafico);
-  document.getElementById('startDate').addEventListener('change', atualizarGrafico);
-  document.getElementById('endDate').addEventListener('change', () => { atualizarGrafico(); calcularEstatisticas(); });
+  document.getElementById('parametroSelect').addEventListener('change', () => atualizarGrafico());
+  document.getElementById('sensorSelect').addEventListener('change', () => atualizarGrafico());
+  // Datas: espera que o utilizador acabe de editar antes de pedir os dados
+  document.getElementById('startDate').addEventListener('change', agendarAtualizacao);
+  document.getElementById('endDate').addEventListener('change', agendarAtualizacao);
 };

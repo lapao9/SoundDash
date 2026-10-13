@@ -257,12 +257,15 @@ def calcular_indicadores_dias(horas: dict, dias: list):
     return {d: _fechar(acc) for d, acc in por_dia.items()}, _fechar(total)
 
 
-def fetch_indicadores_intervalo(sensor: str, start: str, stop: str) -> dict:
+def fetch_indicadores_intervalo(sensor: str, start: str, stop: str, percentis_exatos: bool = True) -> dict:
     """
     Indicadores de um intervalo qualquer, calculados no InfluxDB sobre as amostras raw:
     LAeq (média energética), LCpeak/LAFmax (máximo), LAFmin (mínimo),
     LA10/LA50/LA95 (percentis 90/50/5 das amostras LAEA).
+    Percentis exatos obrigam o InfluxDB a ordenar todas as amostras; para intervalos longos
+    usa-se a estimativa t-digest (erro tipicamente < 0,1 dB) para não sobrecarregar o servidor.
     """
+    metodo = "exact_mean" if percentis_exatos else "estimate_tdigest"
     query = f'''
     import "math"
     base = from(bucket: "{INFLUXDB_BUCKET}")
@@ -273,9 +276,9 @@ def fetch_indicadores_intervalo(sensor: str, start: str, stop: str) -> dict:
     union(tables: [
       laea |> map(fn: (r) => ({{r with _value: math.pow(x: 10.0, y: float(v: r._value) / 10.0)}})) |> sum() |> k(nome: "soma"),
       laea |> count() |> k(nome: "n"),
-      laea |> quantile(q: 0.9, method: "exact_mean") |> k(nome: "la10"),
-      laea |> quantile(q: 0.5, method: "exact_mean") |> k(nome: "la50"),
-      laea |> quantile(q: 0.05, method: "exact_mean") |> k(nome: "la95"),
+      laea |> quantile(q: 0.9, method: "{metodo}") |> k(nome: "la10"),
+      laea |> quantile(q: 0.5, method: "{metodo}") |> k(nome: "la50"),
+      laea |> quantile(q: 0.05, method: "{metodo}") |> k(nome: "la95"),
       base |> filter(fn: (r) => r["_field"] == "LCpeak") |> group() |> max() |> k(nome: "lcpeak"),
       base |> filter(fn: (r) => r["_field"] == "LAFmax") |> group() |> max() |> k(nome: "lafmax"),
       base |> filter(fn: (r) => r["_field"] == "LAFmin") |> group() |> min() |> k(nome: "lafmin"),
