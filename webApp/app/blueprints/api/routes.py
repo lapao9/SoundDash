@@ -13,12 +13,18 @@ from app.services.influx import (
     get_client, local_to_rfc3339, to_local, parse_interval_to_days, pode_usar_bucket_agregado
 )
 from app.services.acoustics import (
-    calcular_media_db, calcular_lden_db, fetch_serie_db,
-    fetch_hourly_campos, fetch_event_intervals_by_hour, flux_media_energetica
+    fetch_event_intervals_by_hour, flux_media_energetica,
+    fetch_horas_agregadas, calcular_indicadores_dias, fetch_indicadores_intervalo,
+    AcumuladorEnergia, dia_atribuido, turno_da_hora, TURNO_INICIO_DIA, INDICADORES_DIA
 )
 from app.services.system_config import load_system_config, save_system_config
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
+
+
+def sensor_valido(nome: str) -> bool:
+    """Nome de measurement seguro para usar dentro de queries Flux."""
+    return bool(re.fullmatch(r'[A-Za-z0-9_\-]+', nome or ''))
 
 
 # Ordem das colunas do CSV gerado no sensor (SoundMeterSemaf_ver3_class.py)
@@ -42,11 +48,14 @@ CSV_CAMPO_INFLUX = {
 
 @api_bp.route('/lden')
 def get_lden():
-    start_str  = request.args.get('start')
-    sensor     = request.args.get('sensor_id')
+    """Indicadores de um dia: turnos (dia de turnos 08h->08h) e Ld/Le/Ln/Lden (ciclo 07h->07h)."""
+    start_str = request.args.get('start')
+    sensor    = request.args.get('sensor_id')
 
     if not start_str or not sensor:
         return jsonify({'error': "Parâmetros 'start' e 'sensor_id' são obrigatórios"}), 400
+    if not sensor_valido(sensor):
+        return jsonify({'error': 'Nome de sensor inválido.'}), 400
 
     # 'start' identifica o dia (hora local de Lisboa); só a parte da data conta
     try:
@@ -54,50 +63,56 @@ def get_lden():
     except Exception:
         return jsonify({'error': 'Formato de data inválido'}), 400
 
-    serie = fetch_serie_db(sensor, 'LAEA',
-                           local_to_rfc3339(dia),
-                           local_to_rfc3339(dia + timedelta(days=1)))
+    # Até às 08:00 do dia seguinte: o T3 (00-08h) e o Ln (23-07h) pertencem a este dia
+    horas = fetch_horas_agregadas(sensor, local_to_rfc3339(dia),
+                                  local_to_rfc3339(dia + timedelta(days=1, hours=TURNO_INICIO_DIA)))
+    por_dia, _ = calcular_indicadores_dias(horas, [dia.date()])
+    v = por_dia[dia.date()]
 
-    def vals(cond):
-        return [v for t, v in serie if cond(t.hour)]
-
-    # Hospital shifts (local time): T1=00-08h, T2=08-16h, T3=16-00h
-    v_t1 = vals(lambda h: h < 8)
-    v_t2 = vals(lambda h: 8 <= h < 16)
-    v_t3 = vals(lambda h: h >= 16)
-
-    # Official Lden periods (EU 2002/49/EC, local time): Ld=07-19h, Le=19-23h, Ln=23-07h
-    v_ld = vals(lambda h: 7 <= h < 19)
-    v_le = vals(lambda h: 19 <= h < 23)
-    v_ln = vals(lambda h: h >= 23 or h < 7)
-
-    Lturno1 = calcular_media_db(v_t1)
-    Lturno2 = calcular_media_db(v_t2)
-    Lturno3 = calcular_media_db(v_t3)
-    Ld      = calcular_media_db(v_ld)
-    Le      = calcular_media_db(v_le)
-    Ln      = calcular_media_db(v_ln)
-
-    if None in (Ld, Le, Ln):
+    if all(v[k] is None for k in ('turno1', 'turno2', 'turno3', 'ld', 'le', 'ln')):
         return jsonify({'error': 'Sem dados suficientes'}), 404
 
-    Lden = calcular_lden_db(Ld, Le, Ln)
-
-    def r(v): return round(v, 2) if v is not None else None
+    def r(x): return round(x, 2) if x is not None else None
 
     return jsonify({
-        'turno1': r(Lturno1),
-        'turno2': r(Lturno2),
-        'turno3': r(Lturno3),
-        'ld':     r(Ld),
-        'le':     r(Le),
-        'ln':     r(Ln),
-        'lden':   r(Lden),
-        # aliases kept for backwards compat with any existing callers
-        'laeq_day':     r(Ld),
-        'laeq_evening': r(Le),
-        'laeq_night':   r(Ln),
+        'turno1': r(v['turno1']),
+        'turno2': r(v['turno2']),
+        'turno3': r(v['turno3']),
+        'ld':     r(v['ld']),
+        'le':     r(v['le']),
+        'ln':     r(v['ln']),
+        'lden':   r(v['lden']),
     })
+
+
+@api_bp.route('/indicadores')
+def get_indicadores():
+    """
+    Indicadores de um intervalo (página Monitorização por Período), calculados no InfluxDB
+    sobre as amostras raw: LAeq, LCpeak, LAFmax, LAFmin, LA10, LA50, LA95.
+    """
+    start  = request.args.get('start')
+    end    = request.args.get('end')
+    sensor = request.args.get('sensor_id')
+
+    if not start or not end or not sensor:
+        return jsonify({'error': "Parâmetros 'start', 'end' e 'sensor_id' são obrigatórios."}), 400
+    if not sensor_valido(sensor):
+        return jsonify({'error': 'Nome de sensor inválido.'}), 400
+    try:
+        start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
+        end_dt   = datetime.fromisoformat(end.replace('Z', '+00:00'))
+    except ValueError:
+        return jsonify({'error': 'Formato de data inválido.'}), 400
+    if end_dt <= start_dt:
+        return jsonify({'error': 'A data de fim tem de ser posterior à de início.'}), 400
+
+    try:
+        v = fetch_indicadores_intervalo(sensor, local_to_rfc3339(start_dt), local_to_rfc3339(end_dt))
+    except Exception as e:
+        return jsonify({'error': f'Erro ao consultar o InfluxDB: {e}'}), 500
+
+    return jsonify({k: (round(x, 2) if isinstance(x, float) else x) for k, x in v.items()})
 
 
 @api_bp.route('/eventos')
@@ -332,7 +347,7 @@ def download_csv():
     if not start or not end or not measurement:
         return jsonify({'error': "Parâmetros 'start', 'end' e 'sensor_id' são obrigatórios."}), 400
 
-    if not re.fullmatch(r'[A-Za-z0-9_\-]+', measurement):
+    if not sensor_valido(measurement):
         return jsonify({'error': 'Nome de sensor inválido.'}), 400
 
     try:
@@ -450,6 +465,8 @@ def get_calendario():
 
     if not all([start_str, end_str, sensor]):
         return jsonify({'error': "Parâmetros obrigatórios: start, end, sensor_id"}), 400
+    if not sensor_valido(sensor):
+        return jsonify({'error': 'Nome de sensor inválido.'}), 400
 
     try:
         start_dt = datetime.fromisoformat(start_str[:10])
@@ -457,80 +474,32 @@ def get_calendario():
     except ValueError:
         return jsonify({'error': 'Formato de data inválido. Use YYYY-MM-DD'}), 400
 
-    # Dias em hora local: [start 00:00, end+1 00:00[ (Lisboa)
-    start_rfc = local_to_rfc3339(start_dt)
-    end_rfc   = local_to_rfc3339(end_dt + timedelta(days=1))
+    dias = [(start_dt + timedelta(days=i)).date() for i in range((end_dt - start_dt).days + 1)]
 
-    raw = fetch_hourly_campos(sensor, start_rfc, end_rfc, ['LAEA', 'LCpeak', 'LAFmax', 'LAFmin'])
-    ev_counts = fetch_event_intervals_by_hour(sensor, start_rfc, end_rfc)
+    # Hora local; vai até às 08:00 do dia seguinte ao último (T3 e Ln do último dia)
+    horas = fetch_horas_agregadas(sensor, local_to_rfc3339(start_dt),
+                                  local_to_rfc3339(end_dt + timedelta(days=1, hours=TURNO_INICIO_DIA)))
+    ev_counts = fetch_event_intervals_by_hour(sensor, local_to_rfc3339(start_dt),
+                                              local_to_rfc3339(end_dt + timedelta(days=1)))
 
-    by_day = defaultdict(lambda: defaultdict(list))
-    for item in raw:
-        t = item['time']
-        by_day[t.strftime('%Y-%m-%d')][item['field']].append({'hour': t.hour, 'value': item['value']})
+    por_dia, total = calcular_indicadores_dias(horas, dias)
+
+    def r(x): return round(x, 1) if x is not None else None
 
     result = []
-    current = start_dt.date()
-    end_date = end_dt.date()
+    for d in dias:
+        v = por_dia[d]
+        day_str = d.strftime('%Y-%m-%d')
+        item = {'date': day_str}
+        item.update({k: r(v[k]) for k in INDICADORES_DIA})
+        item['eventos']  = sum(ev_counts.get((day_str, h), 0) for h in range(24))
+        item['has_data'] = any(item[k] is not None for k in INDICADORES_DIA)
+        result.append(item)
 
-    while current <= end_date:
-        day_str    = current.strftime('%Y-%m-%d')
-        fields_day = by_day.get(day_str, {})
-        laea_hours = fields_day.get('LAEA', [])
-        eventos_dia = sum(ev_counts.get((day_str, h), 0) for h in range(24))
+    # Indicadores do conjunto do mês, calculados diretamente sobre todas as amostras
+    mes = {k: r(total[k]) for k in INDICADORES_DIA}
 
-        if laea_hours:
-            all_vals = [h['value'] for h in laea_hours]
-            # Hospital shifts (T1/T2/T3)
-            t1_vals  = [h['value'] for h in laea_hours if h['hour'] < 8]
-            t2_vals  = [h['value'] for h in laea_hours if 8  <= h['hour'] < 16]
-            t3_vals  = [h['value'] for h in laea_hours if 16 <= h['hour'] < 24]
-            # Official Lden periods: Ld=07-19h, Le=19-23h, Ln=23-07h
-            ld_vals  = [h['value'] for h in laea_hours if 7  <= h['hour'] < 19]
-            le_vals  = [h['value'] for h in laea_hours if 19 <= h['hour'] < 23]
-            ln_vals  = [h['value'] for h in laea_hours if h['hour'] >= 23 or h['hour'] < 7]
-
-            laeq   = calcular_media_db(all_vals)
-            turno1 = calcular_media_db(t1_vals)
-            turno2 = calcular_media_db(t2_vals)
-            turno3 = calcular_media_db(t3_vals)
-            ld     = calcular_media_db(ld_vals)
-            le     = calcular_media_db(le_vals)
-            ln     = calcular_media_db(ln_vals)
-            lden   = calcular_lden_db(ld, le, ln)
-
-            lcpeak_vals = [h['value'] for h in fields_day.get('LCpeak', [])]
-            lafmax_vals = [h['value'] for h in fields_day.get('LAFmax', [])]
-            lafmin_vals = [h['value'] for h in fields_day.get('LAFmin', [])]
-
-            lcpeak = max(lcpeak_vals) if lcpeak_vals else None
-            lmax   = max(lafmax_vals) if lafmax_vals else None
-            lmin   = min(lafmin_vals) if lafmin_vals else None
-
-            result.append({
-                'date':   day_str,
-                'laeq':   round(laeq,   1) if laeq   is not None else None,
-                'turno1': round(turno1, 1) if turno1 is not None else None,
-                'turno2': round(turno2, 1) if turno2 is not None else None,
-                'turno3': round(turno3, 1) if turno3 is not None else None,
-                'ld':     round(ld,     1) if ld     is not None else None,
-                'le':     round(le,     1) if le     is not None else None,
-                'ln':     round(ln,     1) if ln     is not None else None,
-                'lden':   round(lden,   1) if lden   is not None else None,
-                'lcpeak': round(lcpeak, 1) if lcpeak is not None else None,
-                'lmax':   round(lmax,   1) if lmax   is not None else None,
-                'lmin':   round(lmin,   1) if lmin   is not None else None,
-                'eventos': eventos_dia,
-                'has_data': True
-            })
-        else:
-            result.append({'date': day_str, 'laeq': None, 'turno1': None, 'turno2': None,
-                           'turno3': None, 'ld': None, 'le': None, 'ln': None,
-                           'lden': None, 'lcpeak': None, 'lmax': None,
-                           'lmin': None, 'eventos': eventos_dia, 'has_data': False})
-        current += timedelta(days=1)
-
-    return jsonify({'dias': result})
+    return jsonify({'dias': result, 'mes': mes})
 
 
 @api_bp.route('/semanal')
@@ -540,6 +509,8 @@ def get_semanal():
 
     if not all([date_str, sensor]):
         return jsonify({'error': "Parâmetros obrigatórios: start (YYYY-MM-DD), sensor_id"}), 400
+    if not sensor_valido(sensor):
+        return jsonify({'error': 'Nome de sensor inválido.'}), 400
 
     try:
         ref = datetime.fromisoformat(date_str[:10])
@@ -550,67 +521,65 @@ def get_semanal():
     week_start = ref - timedelta(days=(ref.weekday() + 1) % 7)
     week_end   = week_start + timedelta(days=6)
 
-    # Semana em hora local: [domingo 00:00, domingo seguinte 00:00[ (Lisboa)
-    start_rfc = local_to_rfc3339(week_start)
-    end_rfc   = local_to_rfc3339(week_start + timedelta(days=7))
+    # Hora local; vai até às 08:00 do domingo seguinte (T3 do sábado)
+    stop_rfc = local_to_rfc3339(week_start + timedelta(days=7, hours=TURNO_INICIO_DIA))
+    horas = fetch_horas_agregadas(sensor, local_to_rfc3339(week_start), stop_rfc)
+    ev_counts = fetch_event_intervals_by_hour(sensor, local_to_rfc3339(week_start), stop_rfc)
 
-    raw      = fetch_hourly_campos(sensor, start_rfc, end_rfc, ['LAEA', 'LCpeak'])
-    ev_counts = fetch_event_intervals_by_hour(sensor, start_rfc, end_rfc)
+    dias = [(week_start + timedelta(days=i)).date() for i in range(7)]
+    days = [d.strftime('%Y-%m-%d') for d in dias]
 
-    # Index by (day_str, hour, field)
-    idx = defaultdict(lambda: defaultdict(dict))
-    for item in raw:
-        t       = item['time']
-        day_str = t.strftime('%Y-%m-%d')
-        idx[day_str][t.hour][item['field']] = item['value']
+    # Acumula por (dia de calendário, hora) e por (dia de turnos, turno).
+    # As duas horas repetidas na mudança para a hora de inverno ficam juntas na mesma linha.
+    def nova_entrada():
+        return {'acc': AcumuladorEnergia(), 'lcpeak': None}
 
-    days = [(week_start + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(7)]
+    por_hora  = defaultdict(nova_entrada)
+    por_turno = defaultdict(nova_entrada)
+    for t, h in horas.items():
+        soma, n, pico = h.get('soma'), int(h.get('n', 0)), h.get('LCpeak')
+        for destino, chave in ((por_hora,  (t.date(), t.hour)),
+                               (por_turno, (dia_atribuido(t, TURNO_INICIO_DIA), turno_da_hora(t.hour)))):
+            entrada = destino[chave]
+            entrada['acc'].add(soma, n)
+            if pico is not None:
+                entrada['lcpeak'] = pico if entrada['lcpeak'] is None else max(entrada['lcpeak'], pico)
 
-    def cell(day, hour_vals, events=None):
-        laea   = hour_vals.get('LAEA')
-        lcpeak = hour_vals.get('LCpeak')
-        return {
-            'laeq':   round(laea,   1) if laea   is not None else None,
-            'lcpeak': round(lcpeak, 1) if lcpeak is not None else None,
-            'events': events if events else 0
-        }
+    def r(x): return round(x, 1) if x is not None else None
 
-    # Hourly rows
-    horas = []
-    for h in range(24):
-        row = {'hour': h, 'label': f'{h:02d}:00', 'data': {}}
-        for d in days:
-            hv = idx[d].get(h, {})
-            row['data'][d] = cell(d, hv, ev_counts.get((d, h), 0))
-        horas.append(row)
+    def cell(entrada, events):
+        if entrada is None:
+            return {'laeq': None, 'lcpeak': None, 'events': events}
+        return {'laeq': r(entrada['acc'].laeq()), 'lcpeak': r(entrada['lcpeak']), 'events': events}
 
-    # Shift rows — aggregate hours per shift
+    # Hourly rows (dia de calendário)
+    horas_rows = []
+    for hr in range(24):
+        row = {'hour': hr, 'label': f'{hr:02d}:00', 'data': {}}
+        for d, ds in zip(dias, days):
+            row['data'][ds] = cell(por_hora.get((d, hr)), ev_counts.get((ds, hr), 0))
+        horas_rows.append(row)
+
+    # Shift rows (dia de turnos: 08:00 -> 08:00; o T3 é a madrugada seguinte)
     TURNOS = [
-        ('t1', 'Turno 1 — 00:00–08:00h', range(0,  8)),
-        ('t2', 'Turno 2 — 08:00–16:00h', range(8,  16)),
-        ('t3', 'Turno 3 — 16:00–00:00h', range(16, 24)),
+        ('t1', 'turno1', 'Turno 1 — 08:00–16:00h', [(0, h) for h in range(8, 16)]),
+        ('t2', 'turno2', 'Turno 2 — 16:00–00:00h', [(0, h) for h in range(16, 24)]),
+        ('t3', 'turno3', 'Turno 3 — 00:00–08:00h (madrugada seguinte)', [(1, h) for h in range(0, 8)]),
     ]
     turnos = []
-    for tid, label, hours in TURNOS:
+    for tid, chave, label, horas_turno in TURNOS:
         row = {'id': tid, 'label': label, 'data': {}}
-        for d in days:
-            laea_vals   = [idx[d][h]['LAEA']   for h in hours if 'LAEA'   in idx[d].get(h, {})]
-            lcpeak_vals = [idx[d][h]['LCpeak'] for h in hours if 'LCpeak' in idx[d].get(h, {})]
-            ev_total    = sum(ev_counts.get((d, h), 0) for h in hours)
-            laeq   = calcular_media_db(laea_vals)
-            lcpeak = max(lcpeak_vals) if lcpeak_vals else None
-            row['data'][d] = {
-                'laeq':   round(laeq,   1) if laeq   is not None else None,
-                'lcpeak': round(lcpeak, 1) if lcpeak is not None else None,
-                'events': ev_total
-            }
+        for d, ds in zip(dias, days):
+            ev_total = sum(ev_counts.get(((d + timedelta(days=off)).strftime('%Y-%m-%d'), h), 0)
+                           for off, h in horas_turno)
+            row['data'][ds] = cell(por_turno.get((d, chave)), ev_total)
         turnos.append(row)
 
     return jsonify({
         'week_start': week_start.strftime('%Y-%m-%d'),
         'week_end':   week_end.strftime('%Y-%m-%d'),
         'days':       days,
-        'horas':      horas,
+        'horas':      horas_rows,
         'turnos':     turnos
     })
 

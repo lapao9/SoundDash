@@ -265,22 +265,32 @@ Devolve séries de `laea`, `lcpeak`, `lafmax`, `lafmin` com agregação por jane
 
 ---
 
-### Indicador Lden (Directiva Europeia)
+### Turnos e Lden de um dia
 
 ```
 GET /api/lden?sensor_id=Sensor1&start=2025-01-15
 ```
 
-Calcula, para o dia indicado (hora local de Lisboa), os níveis por turno e o Lden com as ponderações normalizadas (Diretiva 2002/49/CE). Todas as médias são energéticas (`10·log10(média(10^(L/10)))`):
+Calcula, para o dia indicado (hora local de Lisboa), os níveis por turno e o Lden. Todas as médias são energéticas (`10·log10(média(10^(L/10)))`) sobre **todas as amostras** do período:
 
-- Turnos: T1 00–08h, T2 08–16h, T3 16–24h
-- Dia (07h–19h): +0 dB
-- Tarde (19h–23h): +5 dB
-- Noite (23h–07h): +10 dB
+- Turnos hospitalares (dia de turnos 08:00 → 08:00): T1 08–16h, T2 16–24h, T3 00–08h da madrugada seguinte
+- Lden (Regulamento Geral do Ruído, ciclo 07:00 → 07:00): Ld 07–20h (13 h), Le 20–23h (3 h, +5 dB), Ln 23–07h (8 h, +10 dB)
 
 ```json
-{ "turno1": 45.2, "turno2": 55.0, "turno3": 51.3, "ld": 58.3, "le": 52.1, "ln": 44.7, "lden": 59.2 }
+{ "turno1": 55.0, "turno2": 51.3, "turno3": 45.2, "ld": 58.3, "le": 52.1, "ln": 44.7, "lden": 59.2 }
 ```
+
+`/api/calendario` devolve os mesmos indicadores para cada dia de um mês e, em `mes`, os valores do mês calculados sobre todas as amostras.
+
+---
+
+### Indicadores de um intervalo
+
+```
+GET /api/indicadores?sensor_id=Sensor1&start=2025-01-15T08:00Z&end=2025-01-15T12:00Z
+```
+
+Calculados no InfluxDB sobre as amostras raw: LAeq (média energética), LCpeak e LAFmax (máximo), LAFmin (mínimo), LA10, LA50 e LA95 (percentis 90, 50 e 5 do LAEA).
 
 ---
 

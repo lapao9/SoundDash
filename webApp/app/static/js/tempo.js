@@ -24,21 +24,26 @@ async function calcularLden() {
     .then(resp => resp.json())
     .then(d => {
       const fmt = v => v !== null && v !== undefined ? v.toFixed(1) + ' dB' : '—';
-      // Turnos hospitalares
-      document.getElementById('laeqNight').textContent   = fmt(d.turno1);
-      document.getElementById('laeqDay').textContent     = fmt(d.turno2);
-      document.getElementById('laeqEvening').textContent = fmt(d.turno3);
-      // Períodos Lden (legislação)
+      // Turnos hospitalares (dia de turnos 08h->08h: o T3 é a madrugada seguinte)
+      document.getElementById('turnoT1').textContent = fmt(d.turno1);
+      document.getElementById('turnoT2').textContent = fmt(d.turno2);
+      document.getElementById('turnoT3').textContent = fmt(d.turno3);
+      // Períodos Lden (RGR, ciclo 07h->07h)
       document.getElementById('tempoLd').textContent = fmt(d.ld);
       document.getElementById('tempoLe').textContent = fmt(d.le);
       document.getElementById('tempoLn').textContent = fmt(d.ln);
       document.getElementById('lden').textContent    = fmt(d.lden);
     })
     .catch(() => {
-      ['laeqNight','laeqDay','laeqEvening','tempoLd','tempoLe','tempoLn','lden']
+      ['turnoT1','turnoT2','turnoT3','tempoLd','tempoLe','tempoLn','lden']
         .forEach(id => { document.getElementById(id).textContent = '—'; });
     });
 }
+
+// Indicadores do intervalo: calculados no servidor sobre as amostras raw
+// (LAeq energético, LCpeak/LAFmax máx., LAFmin mín., LA10/LA50/LA95 = percentis 90/50/5 do LAEA).
+// O gráfico de densidade (KDE) continua a usar as médias por minuto de /api/stats.
+const IDS_INDICADORES = ['laeq','lcpeak','lafmax','lafmin','la10','la50','la95'];
 
 function calcularEstatisticas() {
   const start = document.getElementById('startDate').value;
@@ -48,46 +53,28 @@ function calcularEstatisticas() {
 
   const isoStart = new Date(start).toISOString();
   const isoEnd   = new Date(end).toISOString();
-  const sensor   = sensors[0];
+  const sensor   = encodeURIComponent(sensors[0]);
 
-  const setEmptyStats = () => {
-    ['laeq','lcpeak','lafmax','lafmin','la50','la95'].forEach(id => {
-      document.getElementById(id).textContent = '- dB';
+  IDS_INDICADORES.forEach(id => { document.getElementById(id).textContent = '…'; });
+
+  fetch(`/api/indicadores?start=${isoStart}&end=${isoEnd}&sensor_id=${sensor}`)
+    .then(res => res.json())
+    .then(d => {
+      const fmt = v => typeof v === 'number' ? v.toFixed(1) + ' dB' : '- dB';
+      IDS_INDICADORES.forEach(id => { document.getElementById(id).textContent = fmt(d[id]); });
+    })
+    .catch(err => {
+      console.error('Erro ao buscar indicadores:', err);
+      IDS_INDICADORES.forEach(id => { document.getElementById(id).textContent = '- dB'; });
     });
-    Plotly.purge('kdeChart');
-  };
 
   fetch(`/api/stats?start=${isoStart}&end=${isoEnd}&sensor_id=${sensor}`)
     .then(res => res.json())
     .then(data => {
-      const laeaValues  = (data.laea   || []).map(e => e.value).filter(v => typeof v === 'number');
-      const lcpeakValues= (data.lcpeak || []).map(e => e.value).filter(v => typeof v === 'number');
-      const lafmaxValues= (data.lafmax || []).map(e => e.value).filter(v => typeof v === 'number');
-      const lafminValues= (data.lafmin || []).map(e => e.value).filter(v => typeof v === 'number');
-
-      if (!laeaValues.length) return setEmptyStats();
-
-      const max = arr => Math.max(...arr);
-      const min = arr => Math.min(...arr);
-      const percentile = (arr, p) => {
-        const sorted = [...arr].sort((a, b) => a - b);
-        const i = (p / 100) * (sorted.length - 1);
-        const lower = Math.floor(i), upper = Math.ceil(i);
-        return sorted[lower] * (1 - (i - lower)) + sorted[upper] * (i - lower);
-      };
-
-      const laeq = 10 * Math.log10(
-        laeaValues.reduce((sum, v) => sum + Math.pow(10, v / 10), 0) / laeaValues.length
-      );
-      document.getElementById('laeq').textContent   = laeq.toFixed(1) + ' dB';
-      document.getElementById('lcpeak').textContent = lcpeakValues.length ? max(lcpeakValues).toFixed(1) + ' dB' : '- dB';
-      document.getElementById('lafmax').textContent = lafmaxValues.length ? max(lafmaxValues).toFixed(1) + ' dB' : '- dB';
-      document.getElementById('lafmin').textContent = lafminValues.length ? min(lafminValues).toFixed(1) + ' dB' : '- dB';
-      document.getElementById('la50').textContent   = percentile(laeaValues, 50).toFixed(1) + ' dB';
-      document.getElementById('la95').textContent   = percentile(laeaValues, 10).toFixed(1) + ' dB';
+      const laeaValues = (data.laea || []).map(e => e.value).filter(v => typeof v === 'number');
       atualizarKDE(laeaValues);
     })
-    .catch(err => { console.error('Erro ao buscar estatísticas:', err); setEmptyStats(); });
+    .catch(err => { console.error('Erro ao buscar estatísticas:', err); Plotly.purge('kdeChart'); });
 }
 
 function atualizarKDE(data) {
@@ -140,7 +127,7 @@ function atualizarGrafico() {
     const sensorParams = sensors.map(s => `var-sensorName=${encodeURIComponent(s)}`).join('&');
     document.getElementById('graficoComparativo').src = buildGrafanaURL(12, from, to, sensorParams, `&var-param=${parametro}`);
     Plotly.purge('kdeChart');
-    ['laeq','lcpeak','lafmax','lafmin','la50','la95'].forEach(id => {
+    IDS_INDICADORES.forEach(id => {
       document.getElementById(id).textContent = '- dB';
     });
   } else {

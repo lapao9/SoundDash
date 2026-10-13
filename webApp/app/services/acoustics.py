@@ -1,4 +1,5 @@
 import math
+from datetime import timedelta
 import pandas as pd
 from influxdb_client import InfluxDBClient
 from app.config import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET
@@ -15,42 +16,77 @@ def linear_to_db(linear_value: float) -> float:
     return 10 * math.log10(linear_value)
 
 
-def calcular_media_db(valores_db: list) -> float:
-    if not valores_db:
-        return None
-    lineares = [db_to_linear(v) for v in valores_db if v is not None]
-    if not lineares:
-        return None
-    return linear_to_db(sum(lineares) / len(lineares))
-
-
-def calcular_percentil_db(valores_db: list, percentil: float) -> float:
-    if not valores_db:
-        return None
-    lineares = sorted([db_to_linear(v) for v in valores_db if v is not None])
-    if not lineares:
-        return None
-    idx = min(int(len(lineares) * percentil), len(lineares) - 1)
-    return linear_to_db(lineares[idx])
-
-
 def calcular_lden_db(Lday: float, Levening: float, Lnight: float) -> float:
-    """Official EU Lden: Ld=07-19h (12h), Le=19-23h (4h+5dB), Ln=23-07h (8h+10dB)."""
+    """
+    Lden (Regulamento Geral do Ruído, DL 9/2007):
+    Ld = 07-20h (13 h), Le = 20-23h (3 h, +5 dB), Ln = 23-07h (8 h, +10 dB).
+    """
     if None in (Lday, Levening, Lnight):
         return None
     num = (
-        12 * db_to_linear(Lday) +
-        4  * db_to_linear(Levening + 5) +
+        13 * db_to_linear(Lday) +
+        3  * db_to_linear(Levening + 5) +
         8  * db_to_linear(Lnight + 10)
     )
     return linear_to_db(num / 24)
 
 
-# Campos em dB cuja média tem de ser energética (dB -> linear -> média -> dB)
-CAMPOS_ENERGIA = {'LAEA', 'LAEC', 'LAEZ', 'LZeq', 'LCeq', 'LAeq', 'LAEA_SLOW_Event'}
-# Campos de pico/máximo e mínimo: agregam-se com max / min, nunca com média
-CAMPOS_MAX = {'LCpeak', 'LCpeakT', 'LApeak', 'LApeakT', 'LZpeak', 'LZpeakT', 'LAFmax', 'LAFmaxT'}
-CAMPOS_MIN = {'LAFmin', 'LAFminT'}
+# ── Turnos e períodos (hora local de Lisboa) ──────────────────────────────────
+# Turnos hospitalares: o "dia de turnos" começa às 08:00. O T3 (00-08h) pertence
+# ao dia anterior.  T1 = 08-16h, T2 = 16-24h, T3 = 00-08h (do dia seguinte).
+TURNO_INICIO_DIA = 8
+# Períodos do Lden: o ciclo começa às 07:00 (Ln = 23-07h fica no mesmo ciclo).
+LDEN_INICIO_DIA = 7
+
+
+def turno_da_hora(hora: int) -> str:
+    if 8 <= hora < 16:
+        return 'turno1'
+    if hora >= 16:
+        return 'turno2'
+    return 'turno3'
+
+
+def periodo_da_hora(hora: int) -> str:
+    if 7 <= hora < 20:
+        return 'ld'
+    if 20 <= hora < 23:
+        return 'le'
+    return 'ln'
+
+
+def dia_atribuido(t, inicio: int):
+    """Data a que pertence o instante t (hora local) num ciclo diário que começa às `inicio` horas."""
+    d = t.date()
+    return d - timedelta(days=1) if t.hour < inicio else d
+
+
+class AcumuladorEnergia:
+    """
+    Junta somas horárias de 10^(L/10) e contagens. O LAeq resultante é idêntico à
+    média energética calculada diretamente sobre todas as amostras.
+    """
+    __slots__ = ('soma', 'n')
+
+    def __init__(self):
+        self.soma = 0.0
+        self.n = 0
+
+    def add(self, soma, n):
+        if soma is not None and n:
+            self.soma += soma
+            self.n += n
+
+    def laeq(self):
+        return linear_to_db(self.soma / self.n) if self.n else None
+
+
+def _max(a, b):
+    return b if a is None else (a if b is None else max(a, b))
+
+
+def _min(a, b):
+    return b if a is None else (a if b is None else min(a, b))
 
 
 def flux_media_energetica(every: str, time_src: str = '_stop') -> str:
@@ -59,89 +95,6 @@ def flux_media_energetica(every: str, time_src: str = '_stop') -> str:
       |> map(fn: (r) => ({{r with _value: math.pow(x: 10.0, y: float(v: r._value) / 10.0)}}))
       |> aggregateWindow(every: {every}, fn: mean, createEmpty: false, timeSrc: "{time_src}")
       |> map(fn: (r) => ({{r with _value: 10.0 * math.log10(x: r._value)}}))'''
-
-
-def _field_filter(campos) -> str:
-    return ' or '.join([f'r["_field"] == "{c}"' for c in campos])
-
-
-def fetch_serie_db(sensor: str, campo: str, start: str, stop: str) -> list:
-    """Valores raw de um campo: lista de (datetime em hora local, valor)."""
-    query = f'''
-    from(bucket: "{INFLUXDB_BUCKET}")
-      |> range(start: {start}, stop: {stop})
-      |> filter(fn: (r) => r["_measurement"] == "{sensor}")
-      |> filter(fn: (r) => r["_field"] == "{campo}")
-    '''
-    client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG, timeout=60000)
-    try:
-        tables = client.query_api().query(query, org=INFLUXDB_ORG)
-        serie = []
-        for table in tables:
-            for record in table.records:
-                v = record.get_value()
-                if v is not None:
-                    serie.append((to_local(record.get_time()), float(v)))
-        return serie
-    except Exception as e:
-        print(f"Erro ao buscar valores: {e}")
-        return []
-    finally:
-        client.close()
-
-
-def fetch_hourly_campos(sensor: str, start: str, stop: str, campos: list) -> list:
-    """
-    Agregação horária por campo: média energética para níveis equivalentes (LAEA...),
-    max para picos/máximos, min para mínimos.
-    Devolve [{'time': datetime em hora local (início da hora), 'field': str, 'value': float}].
-    """
-    base = f'''from(bucket: "{INFLUXDB_BUCKET}")
-      |> range(start: {start}, stop: {stop})
-      |> filter(fn: (r) => r["_measurement"] == "{sensor}")'''
-
-    grupos = {
-        'energia': [c for c in campos if c in CAMPOS_ENERGIA],
-        'max':     [c for c in campos if c in CAMPOS_MAX],
-        'min':     [c for c in campos if c in CAMPOS_MIN],
-    }
-    grupos['mean'] = [c for c in campos if not any(c in g for g in grupos.values())]
-
-    streams = []
-    for nome, lista in grupos.items():
-        if not lista:
-            continue
-        s = f'{base}\n      |> filter(fn: (r) => {_field_filter(lista)})'
-        if nome == 'energia':
-            s += flux_media_energetica('1h', '_start')
-        else:
-            s += f'\n      |> aggregateWindow(every: 1h, fn: {nome}, createEmpty: false, timeSrc: "_start")'
-        streams.append(s)
-
-    if not streams:
-        return []
-    if len(streams) == 1:
-        query = 'import "math"\n' + streams[0]
-    else:
-        query = 'import "math"\nunion(tables: [\n' + ',\n'.join(streams) + '\n])'
-
-    client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG, timeout=60000)
-    try:
-        tables = client.query_api().query(query, org=INFLUXDB_ORG)
-        result = []
-        for table in tables:
-            for record in table.records:
-                v = record.get_value()
-                if v is not None:
-                    result.append({'time': to_local(record.get_time()),
-                                   'field': record.get_field(),
-                                   'value': float(v)})
-        return result
-    except Exception as e:
-        print(f"Erro ao buscar campos horários: {e}")
-        return []
-    finally:
-        client.close()
 
 
 def fetch_event_intervals_by_hour(sensor: str, start: str, stop: str) -> dict:
@@ -188,6 +141,158 @@ def fetch_event_intervals_by_hour(sensor: str, start: str, stop: str) -> dict:
     except Exception as e:
         print(f"Erro ao buscar event intervals: {e}")
         return {}
+    finally:
+        client.close()
+
+
+def fetch_horas_agregadas(sensor: str, start: str, stop: str) -> dict:
+    """
+    Agregação horária exata a partir das amostras raw:
+      soma = Σ 10^(LAEA/10) e n = nº de amostras LAEA (permitem LAeq exato de qualquer conjunto de horas),
+      LCpeak/LAFmax = máximo, LAFmin = mínimo.
+    Devolve {datetime local (início da hora): {'soma', 'n', 'LCpeak', 'LAFmax', 'LAFmin'}}.
+    """
+    query = f'''
+    import "math"
+    base = from(bucket: "{INFLUXDB_BUCKET}")
+      |> range(start: {start}, stop: {stop})
+      |> filter(fn: (r) => r["_measurement"] == "{sensor}")
+    lin = base
+      |> filter(fn: (r) => r["_field"] == "LAEA")
+      |> map(fn: (r) => ({{r with _value: math.pow(x: 10.0, y: float(v: r._value) / 10.0)}}))
+    soma = lin
+      |> aggregateWindow(every: 1h, fn: sum, createEmpty: false, timeSrc: "_start")
+      |> map(fn: (r) => ({{r with _field: "soma"}}))
+    n = lin
+      |> aggregateWindow(every: 1h, fn: count, createEmpty: false, timeSrc: "_start")
+      |> map(fn: (r) => ({{r with _field: "n", _value: float(v: r._value)}}))
+    mx = base
+      |> filter(fn: (r) => r["_field"] == "LCpeak" or r["_field"] == "LAFmax")
+      |> aggregateWindow(every: 1h, fn: max, createEmpty: false, timeSrc: "_start")
+      |> map(fn: (r) => ({{r with _value: float(v: r._value)}}))
+    mn = base
+      |> filter(fn: (r) => r["_field"] == "LAFmin")
+      |> aggregateWindow(every: 1h, fn: min, createEmpty: false, timeSrc: "_start")
+      |> map(fn: (r) => ({{r with _value: float(v: r._value)}}))
+    union(tables: [soma, n, mx, mn])
+    '''
+    client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG, timeout=120000)
+    try:
+        horas = {}
+        for table in client.query_api().query(query, org=INFLUXDB_ORG):
+            for record in table.records:
+                v = record.get_value()
+                if v is None:
+                    continue
+                h = horas.setdefault(to_local(record.get_time()), {})
+                campo = record.get_field()
+                if campo in ('soma', 'n'):
+                    h[campo] = h.get(campo, 0) + float(v)
+                elif campo == 'LAFmin':
+                    h[campo] = _min(h.get(campo), float(v))
+                else:
+                    h[campo] = _max(h.get(campo), float(v))
+        return horas
+    except Exception as e:
+        print(f"Erro ao buscar agregação horária: {e}")
+        return {}
+    finally:
+        client.close()
+
+
+INDICADORES_DIA = ('laeq', 'lcpeak', 'lmax', 'lmin',
+                   'turno1', 'turno2', 'turno3', 'ld', 'le', 'ln', 'lden')
+
+
+def _novo_acumulado():
+    return {
+        'laeq': AcumuladorEnergia(), 'lcpeak': None, 'lmax': None, 'lmin': None,
+        'turno1': AcumuladorEnergia(), 'turno2': AcumuladorEnergia(), 'turno3': AcumuladorEnergia(),
+        'ld': AcumuladorEnergia(), 'le': AcumuladorEnergia(), 'ln': AcumuladorEnergia(),
+    }
+
+
+def _fechar(acc):
+    r = {k: (v.laeq() if isinstance(v, AcumuladorEnergia) else v) for k, v in acc.items()}
+    r['lden'] = calcular_lden_db(r['ld'], r['le'], r['ln'])
+    return r
+
+
+def calcular_indicadores_dias(horas: dict, dias: list):
+    """
+    Indicadores por dia e do conjunto dos dias, a partir de fetch_horas_agregadas().
+    Cada indicador usa o seu "dia":
+      laeq, lcpeak, lmax, lmin  -> dia de calendário (00:00 -> 24:00)
+      turno1, turno2, turno3    -> dia de turnos (08:00 -> 08:00 do dia seguinte)
+      ld, le, ln, lden          -> ciclo do Lden  (07:00 -> 07:00 do dia seguinte)
+    Para cobrir o último dia, `horas` tem de ir até às 08:00 do dia seguinte.
+    Devolve ({date: {indicador: valor}}, {indicador: valor do conjunto}).
+    """
+    por_dia = {d: _novo_acumulado() for d in dias}
+    total = _novo_acumulado()
+
+    for t, h in horas.items():
+        soma, n = h.get('soma'), int(h.get('n', 0))
+
+        d = t.date()
+        if d in por_dia:
+            for acc in (por_dia[d], total):
+                acc['laeq'].add(soma, n)
+                acc['lcpeak'] = _max(acc['lcpeak'], h.get('LCpeak'))
+                acc['lmax']   = _max(acc['lmax'],   h.get('LAFmax'))
+                acc['lmin']   = _min(acc['lmin'],   h.get('LAFmin'))
+
+        d = dia_atribuido(t, TURNO_INICIO_DIA)
+        if d in por_dia:
+            turno = turno_da_hora(t.hour)
+            por_dia[d][turno].add(soma, n)
+            total[turno].add(soma, n)
+
+        d = dia_atribuido(t, LDEN_INICIO_DIA)
+        if d in por_dia:
+            periodo = periodo_da_hora(t.hour)
+            por_dia[d][periodo].add(soma, n)
+            total[periodo].add(soma, n)
+
+    return {d: _fechar(acc) for d, acc in por_dia.items()}, _fechar(total)
+
+
+def fetch_indicadores_intervalo(sensor: str, start: str, stop: str) -> dict:
+    """
+    Indicadores de um intervalo qualquer, calculados no InfluxDB sobre as amostras raw:
+    LAeq (média energética), LCpeak/LAFmax (máximo), LAFmin (mínimo),
+    LA10/LA50/LA95 (percentis 90/50/5 das amostras LAEA).
+    """
+    query = f'''
+    import "math"
+    base = from(bucket: "{INFLUXDB_BUCKET}")
+      |> range(start: {start}, stop: {stop})
+      |> filter(fn: (r) => r["_measurement"] == "{sensor}")
+    laea = base |> filter(fn: (r) => r["_field"] == "LAEA") |> group()
+    k = (tables=<-, nome) => tables |> map(fn: (r) => ({{k: nome, _value: float(v: r._value)}}))
+    union(tables: [
+      laea |> map(fn: (r) => ({{r with _value: math.pow(x: 10.0, y: float(v: r._value) / 10.0)}})) |> sum() |> k(nome: "soma"),
+      laea |> count() |> k(nome: "n"),
+      laea |> quantile(q: 0.9, method: "exact_mean") |> k(nome: "la10"),
+      laea |> quantile(q: 0.5, method: "exact_mean") |> k(nome: "la50"),
+      laea |> quantile(q: 0.05, method: "exact_mean") |> k(nome: "la95"),
+      base |> filter(fn: (r) => r["_field"] == "LCpeak") |> group() |> max() |> k(nome: "lcpeak"),
+      base |> filter(fn: (r) => r["_field"] == "LAFmax") |> group() |> max() |> k(nome: "lafmax"),
+      base |> filter(fn: (r) => r["_field"] == "LAFmin") |> group() |> min() |> k(nome: "lafmin"),
+    ])
+    '''
+    client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG, timeout=120000)
+    try:
+        valores = {}
+        for table in client.query_api().query(query, org=INFLUXDB_ORG):
+            for record in table.records:
+                if record.get_value() is not None:
+                    valores[record.values.get('k')] = float(record.get_value())
+        n = valores.pop('n', 0)
+        soma = valores.pop('soma', None)
+        valores['laeq'] = linear_to_db(soma / n) if n and soma else None
+        valores['n_amostras'] = int(n)
+        return valores
     finally:
         client.close()
 

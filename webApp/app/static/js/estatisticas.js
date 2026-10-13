@@ -9,6 +9,7 @@ let showEventosMensal = false;
 let graficoChart  = null;
 let graficoTipo   = 'lclaeq';
 let diasCache     = null;
+let mesCache      = null;   // indicadores do mês calculados no servidor sobre todas as amostras
 
 // ── Color helpers ──────────────────────────────────────────────────────────
 
@@ -100,7 +101,7 @@ function renderCalendar(dias, param) {
         if (isTurno) {
           td.classList.add('turno-cell');
           td.style.backgroundColor = dbToColor(info[param]);
-          const labels = ['T1 (00-08h)','T2 (08-16h)','T3 (16-00h)'];
+          const labels = ['T1 (08-16h)','T2 (16-24h)','T3 (00-08h)'];
           const keys   = ['turno1','turno2','turno3'];
           td.innerHTML = '<div class="turno-cell-inner">' + keys.map((k, i) => {
             const v = info[k];
@@ -153,8 +154,8 @@ function resetParaMes() {
   const mes = parseInt(document.getElementById('mesSelect').value);
   const ano = parseInt(document.getElementById('anoSelect').value);
   setPeriodoLabel(`Média — ${MESES[mes - 1]} ${ano}`, false);
-  atualizarTurnos(diasCache);
-  atualizarLden(diasCache);
+  atualizarTurnos(mesCache);
+  atualizarLden(mesCache);
 }
 
 async function mostrarDia(dateStr, tdEl) {
@@ -210,59 +211,26 @@ function setGraficoTipo(tipo) {
   if (diasCache) renderGrafico(diasCache);
 }
 
-function atualizarTurnos(dias) {
+// Indicadores do mês: calculados no servidor diretamente sobre todas as amostras
+// (não é uma média dos valores diários).
+function atualizarTurnos(mes) {
   const box = document.getElementById('turnosBox');
-  const withData = dias.filter(d => d.has_data);
-  if (!withData.length) { box.classList.add('d-none'); return; }
-
-  function energyAvg(vals) {
-    if (!vals.length) return null;
-    return 10 * Math.log10(vals.reduce((s, v) => s + Math.pow(10, v / 10), 0) / vals.length);
-  }
-
-  const t1 = energyAvg(withData.filter(d => d.turno1 !== null).map(d => d.turno1));
-  const t2 = energyAvg(withData.filter(d => d.turno2 !== null).map(d => d.turno2));
-  const t3 = energyAvg(withData.filter(d => d.turno3 !== null).map(d => d.turno3));
-
-  const fmt = v => v !== null ? v.toFixed(1) + ' dB' : '—';
-  document.getElementById('turnoT1').textContent = fmt(t1);
-  document.getElementById('turnoT2').textContent = fmt(t2);
-  document.getElementById('turnoT3').textContent = fmt(t3);
+  if (!mes || ['turno1','turno2','turno3'].every(k => mes[k] === null)) { box.classList.add('d-none'); return; }
+  const fmt = v => v !== null && v !== undefined ? v.toFixed(1) + ' dB' : '—';
+  document.getElementById('turnoT1').textContent = fmt(mes.turno1);
+  document.getElementById('turnoT2').textContent = fmt(mes.turno2);
+  document.getElementById('turnoT3').textContent = fmt(mes.turno3);
   box.classList.remove('d-none');
 }
 
-function atualizarLden(dias) {
+function atualizarLden(mes) {
   const box = document.getElementById('ldenBox');
-  const withData = dias.filter(d => d.has_data);
-  if (!withData.length) { box.classList.add('d-none'); return; }
-
-  function energyAvg(vals) {
-    if (!vals.length) return null;
-    const sum = vals.reduce((s, v) => s + Math.pow(10, v / 10), 0);
-    return 10 * Math.log10(sum / vals.length);
-  }
-
-  // Use official Ld/Le/Ln fields from backend (07-19h, 19-23h, 23-07h)
-  const ldVals = withData.filter(d => d.ld !== null && d.ld !== undefined).map(d => d.ld);
-  const leVals = withData.filter(d => d.le !== null && d.le !== undefined).map(d => d.le);
-  const lnVals = withData.filter(d => d.ln !== null && d.ln !== undefined).map(d => d.ln);
-
-  const Ld = energyAvg(ldVals);
-  const Le = energyAvg(leVals);
-  const Ln = energyAvg(lnVals);
-
-  let Lden = null;
-  if (Ld !== null && Le !== null && Ln !== null) {
-    // Official EU formula: 12h day + 4h evening (+5dB) + 8h night (+10dB)
-    Lden = 10 * Math.log10(
-      (12 * Math.pow(10, Ld / 10) + 4 * Math.pow(10, (Le + 5) / 10) + 8 * Math.pow(10, (Ln + 10) / 10)) / 24
-    );
-  }
-
-  document.getElementById('ldenLd').textContent   = Ld   !== null ? Ld.toFixed(1)   + ' dB' : '—';
-  document.getElementById('ldenLe').textContent   = Le   !== null ? Le.toFixed(1)   + ' dB' : '—';
-  document.getElementById('ldenLn').textContent   = Ln   !== null ? Ln.toFixed(1)   + ' dB' : '—';
-  document.getElementById('ldenLden').textContent = Lden !== null ? Lden.toFixed(1) + ' dB' : '—';
+  if (!mes || ['ld','le','ln'].every(k => mes[k] === null)) { box.classList.add('d-none'); return; }
+  const fmt = v => v !== null && v !== undefined ? v.toFixed(1) + ' dB' : '—';
+  document.getElementById('ldenLd').textContent   = fmt(mes.ld);
+  document.getElementById('ldenLe').textContent   = fmt(mes.le);
+  document.getElementById('ldenLn').textContent   = fmt(mes.ln);
+  document.getElementById('ldenLden').textContent = fmt(mes.lden);
   box.classList.remove('d-none');
 }
 
@@ -279,18 +247,18 @@ function renderGrafico(dias) {
   let datasets;
   if (graficoTipo === 'turnos') {
     datasets = [
-      { type:'bar', label:'T1 — 00-08h', data: withData.map(d => d.turno1),
+      { type:'bar', label:'T1 — 08-16h', data: withData.map(d => d.turno1),
         backgroundColor:'rgba(52,152,219,0.8)',   borderRadius:3 },
-      { type:'bar', label:'T2 — 08-16h', data: withData.map(d => d.turno2),
+      { type:'bar', label:'T2 — 16-24h', data: withData.map(d => d.turno2),
         backgroundColor:'rgba(39,174,96,0.8)',    borderRadius:3 },
-      { type:'bar', label:'T3 — 16-00h', data: withData.map(d => d.turno3),
+      { type:'bar', label:'T3 — 00-08h (madrugada seguinte)', data: withData.map(d => d.turno3),
         backgroundColor:'rgba(230,126,34,0.8)',   borderRadius:3 }
     ];
   } else if (graficoTipo === 'lden') {
     datasets = [
-      { type:'bar', label:'Ld — 07-19h', data: withData.map(d => d.ld),
+      { type:'bar', label:'Ld — 07-20h', data: withData.map(d => d.ld),
         backgroundColor:'rgba(52,152,219,0.8)',   borderRadius:3 },
-      { type:'bar', label:'Le — 19-23h', data: withData.map(d => d.le),
+      { type:'bar', label:'Le — 20-23h', data: withData.map(d => d.le),
         backgroundColor:'rgba(230,126,34,0.8)',   borderRadius:3 },
       { type:'bar', label:'Ln — 23-07h', data: withData.map(d => d.ln),
         backgroundColor:'rgba(44,62,80,0.8)',     borderRadius:3 }
@@ -332,9 +300,10 @@ function atualizarResumo(dias, param) {
   if (!vals.length) { box.classList.add('d-none'); return; }
   box.classList.remove('d-none');
 
-  const values = vals.map(v => v.val);
-  const mean10 = values.reduce((s, v) => s + Math.pow(10, v / 10), 0) / values.length;
-  const media  = (10 * Math.log10(mean10)).toFixed(1);
+  // Valor do mês calculado no servidor sobre todas as amostras (LAeq/turnos/Lden: média energética;
+  // LCpeak/LAFmax: máximo; LAFmin: mínimo)
+  const vMes  = mesCache ? mesCache[param] : null;
+  const media = vMes !== null && vMes !== undefined ? vMes.toFixed(1) : '—';
 
   const maxItem = vals.reduce((a, b) => b.val > a.val ? b : a);
   const minItem = vals.reduce((a, b) => b.val < a.val ? b : a);
@@ -376,10 +345,11 @@ async function atualizarCalendario() {
     document.querySelectorAll('.cal-cell.selected').forEach(el => el.classList.remove('selected'));
     setPeriodoLabel(`Média — ${MESES[mes - 1]} ${ano}`, false);
 
+    mesCache = data.mes || null;
     renderCalendar(data.dias, param);
     atualizarResumo(data.dias, param);
-    atualizarTurnos(data.dias);
-    atualizarLden(data.dias);
+    atualizarTurnos(mesCache);
+    atualizarLden(mesCache);
     renderGrafico(data.dias);
   } catch (err) {
     console.error('Erro ao carregar calendário:', err);
@@ -528,14 +498,21 @@ function downloadCSV() {
   if (vistaAtual === 'mensal') {
     if (!diasCache || !diasCache.length) { alert('Sem dados para exportar. Atualiza o calendário primeiro.'); return; }
 
-    const headers = ['Data','LAeq (dB)','Turno1 00-08h (dB)','Turno2 08-16h (dB)','Turno3 16-00h (dB)',
-                      'Ld 07-19h (dB)','Le 19-23h (dB)','Ln 23-07h (dB)','Lden (dB)',
+    const headers = ['Data','LAeq (dB)','Turno1 08-16h (dB)','Turno2 16-24h (dB)','Turno3 00-08h dia seguinte (dB)',
+                      'Ld 07-20h (dB)','Le 20-23h (dB)','Ln 23-07h (dB)','Lden (dB)',
                       'LCpeak max (dB)','LAFmax (dB)','LAFmin (dB)','Eventos'];
     const rows = diasCache.map(d => [
       d.date, d.laeq ?? '', d.turno1 ?? '', d.turno2 ?? '', d.turno3 ?? '',
       d.ld ?? '', d.le ?? '', d.ln ?? '', d.lden ?? '',
       d.lcpeak ?? '', d.lmax ?? '', d.lmin ?? '', d.eventos ?? 0
     ]);
+    if (mesCache) {
+      const m = mesCache;
+      rows.push(['Mês (todas as amostras)', m.laeq ?? '', m.turno1 ?? '', m.turno2 ?? '', m.turno3 ?? '',
+                 m.ld ?? '', m.le ?? '', m.ln ?? '', m.lden ?? '',
+                 m.lcpeak ?? '', m.lmax ?? '', m.lmin ?? '',
+                 diasCache.reduce((t, d) => t + (d.eventos || 0), 0)]);
+    }
     const csv = [headers, ...rows].map(r => r.join(';')).join('\n');
 
     const mes = document.getElementById('mesSelect').value.toString().padStart(2, '0');
