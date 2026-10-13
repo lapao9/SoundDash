@@ -52,25 +52,25 @@ union(tables: [Auxmax, Auxmin, Auxmean])
 
 ## Painel 12 — "Comparativo por Parâmetro" (multi-sensor, `${param}`)
 
-A função de agregação passa a depender do parâmetro escolhido. Substituir **cada uma** das queries
-(A = `sensor_id[0]`, B = `sensor_id[1]`, C = `sensor_id[2]`) pelo modelo abaixo, mudando só o índice
-`IDX` (0, 1, 2) e a condição `length(arr: sensor_id) > IDX`:
+Antes, este painel tinha **3 queries fixas** (A = 1.º sensor, B = 2.º, C = 3.º), por isso nunca
+mostrava mais de 3 sensores. A query abaixo substitui as três: filtra **todos** os sensores
+selecionados de uma vez (qualquer número) e já usa a agregação correta para cada parâmetro.
+
+Como aplicar:
+1. Painel 12 → **Edit**.
+2. Na query **A**, substituir o texto pela query abaixo.
+3. **Apagar as queries B e C** (ícone do caixote do lixo ao lado de cada uma).
+4. **Apply** e guardar o dashboard.
 
 ```flux
 import "math"
 
-sensor_id = ${sensorName:json}
-IDX = 0
+sensores = ${sensorName:json}
 param = "${param}"
 
-dados = if length(arr: sensor_id) > IDX then
-  from(bucket: "SoundDashHosp")
-    |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-    |> filter(fn: (r) => r["_measurement"] == sensor_id[IDX] and r["_field"] == param)
-else
-  from(bucket: "SoundDashHosp")
-    |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-    |> filter(fn: (r) => false)
+dados = from(bucket: "SoundDashHosp")
+  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |> filter(fn: (r) => contains(value: r._measurement, set: sensores) and r._field == param)
 
 resultado =
   if param == "LCpeak" or param == "LAFmax" then
@@ -85,11 +85,13 @@ resultado =
       |> map(fn: (r) => ({ r with _value: 10.0 * math.log10(x: r._value) }))
 
 resultado
-  |> map(fn: (r) => ({ r with _field: param + " " + string(v: r._measurement) }))
+  // uma linha por sensor, com o nome "LAEA sensor1", "LAEA sensor2", ...
+  |> map(fn: (r) => ({ r with _field: param + " " + r._measurement }))
+  |> keep(columns: ["_time", "_value", "_field"])
 ```
 
-> Na query A a condição é sempre verdadeira (há pelo menos 1 sensor); pode-se usar a versão
-> sem o `if` se preferires.
+Para confirmar: na página *Monitorização em Tempo Real*, selecionar 4 ou mais sensores (Ctrl + clique).
+O gráfico comparativo deve mostrar uma linha por sensor.
 
 ---
 

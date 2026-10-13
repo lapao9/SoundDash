@@ -190,6 +190,9 @@ Para comandos completos e actualização de serviços existentes (uninstall + re
 # Parar tudo
 .\stop-all.bat
 
+# Reiniciar tudo (parar + arrancar)
+.\restart-all.bat
+
 # Ver estado
 .\status.bat
 
