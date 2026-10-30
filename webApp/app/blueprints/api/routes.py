@@ -5,12 +5,15 @@ from collections import defaultdict
 from io import StringIO
 import csv
 import json
+import math
 import re
+import threading
 
 from influxdb_client import InfluxDBClient
 from app.config import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET
 from app.services.influx import (
-    get_client, local_to_rfc3339, to_local, parse_interval_to_days, pode_usar_bucket_agregado
+    get_client, local_to_rfc3339, to_local, parse_interval_to_days, escolher_bucket,
+    CAMPOS_AGREGADOS, CAMPOS_NOS_BUCKETS_AGREGADOS
 )
 from app.services.acoustics import (
     fetch_event_intervals_by_hour, flux_media_energetica,
@@ -108,8 +111,8 @@ def get_indicadores():
         return jsonify({'error': 'A data de fim tem de ser posterior à de início.'}), 400
 
     try:
-        # Percentis exatos até 72 h; acima disso, estimativa (ordenar milhões de amostras sobrecarrega o InfluxDB)
-        exatos = (end_dt - start_dt) <= timedelta(hours=72)
+        # Percentis exatos até 24 h; acima disso, estimativa (ordenar milhões de amostras sobrecarrega o InfluxDB)
+        exatos = (end_dt - start_dt) <= timedelta(hours=24)
         v = fetch_indicadores_intervalo(sensor, local_to_rfc3339(start_dt), local_to_rfc3339(end_dt), exatos)
         v['percentis_exatos'] = exatos
     except Exception as e:
@@ -207,82 +210,58 @@ from(bucket: "SoundDashHosp")
     return jsonify(results)
 
 
+STATS_MAX_PONTOS = 10000
+
+
 @api_bp.route('/stats')
 def get_stats():
+    """
+    Série de LAeq (média energética) para o gráfico de densidade (KDE) da página Monitorização por Período.
+    Até 12 h usa o raw (médias por minuto); acima disso lê os buckets agregados, que já estão em
+    escala linear. A janela alarga-se para não passar de STATS_MAX_PONTOS pontos.
+    """
     start       = request.args.get('start')
     end         = request.args.get('end')
     measurement = request.args.get('sensor_id')
-    window      = request.args.get('window', '1m')
 
     if not start or not end or not measurement:
-        return jsonify({'error': "Parâmetros 'start', 'end' e 'measurement' são obrigatórios."}), 400
-
+        return jsonify({'error': "Parâmetros 'start', 'end' e 'sensor_id' são obrigatórios."}), 400
+    if not sensor_valido(measurement):
+        return jsonify({'error': 'Nome de sensor inválido.'}), 400
     try:
         start_dt = datetime.fromisoformat(start.replace('Z', '+00:00'))
         end_dt   = datetime.fromisoformat(end.replace('Z', '+00:00'))
     except ValueError:
         return jsonify({'error': 'Formato de data inválido.'}), 400
+    if end_dt <= start_dt:
+        return jsonify({'error': 'A data de fim tem de ser posterior à de início.'}), 400
 
-    duration_days = (end_dt - start_dt).total_seconds() / (3600 * 24)
-    client    = get_client()
-    query_api = client.query_api()
-    limit     = 10000
-
-    if pode_usar_bucket_agregado(duration_days, 'LAEA'):
-        b_laea = 'SoundDashHosp_hourly'
-        m_laea = f'{measurement}_hourly'
+    duracao = end_dt - start_dt
+    bucket  = escolher_bucket(duracao)
+    minutos = max(1, math.ceil(duracao.total_seconds() / 60 / STATS_MAX_PONTOS))
+    if bucket == INFLUXDB_BUCKET:
+        media = flux_media_energetica(f'{minutos}m')
     else:
-        b_laea = INFLUXDB_BUCKET
-        m_laea = measurement
+        media = f'''
+      |> aggregateWindow(every: {minutos}m, fn: mean, createEmpty: false)
+      |> map(fn: (r) => ({{r with _value: 10.0 * math.log10(x: r._value)}}))'''
 
-    queries = {
-        'laea': f'''
-            import "math"
-            from(bucket: "{b_laea}")
-              |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
-              |> filter(fn: (r) => r["_measurement"] == "{m_laea}")
-              |> filter(fn: (r) => r["_field"] == "LAEA"){flux_media_energetica(window)}
-              |> limit(n: {limit})
-        ''',
-        'lcpeak': f'''
-            from(bucket: "{INFLUXDB_BUCKET}")
-              |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
-              |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-              |> filter(fn: (r) => r["_field"] == "LCpeak")
-              |> aggregateWindow(every: {window}, fn: max, createEmpty: false)
-              |> limit(n: {limit})
-        ''',
-        'lafmax': f'''
-            from(bucket: "{INFLUXDB_BUCKET}")
-              |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
-              |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-              |> filter(fn: (r) => r["_field"] == "LAFmax")
-              |> aggregateWindow(every: {window}, fn: max, createEmpty: false)
-              |> limit(n: {limit})
-        ''',
-        'lafmin': f'''
-            from(bucket: "{INFLUXDB_BUCKET}")
-              |> range(start: time(v: "{start}"), stop: time(v: "{end}"))
-              |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-              |> filter(fn: (r) => r["_field"] == "LAFmin")
-              |> aggregateWindow(every: {window}, fn: min, createEmpty: false)
-              |> limit(n: {limit})
-        '''
-    }
+    query = f'''
+    import "math"
+    from(bucket: "{bucket}")
+      |> range(start: {local_to_rfc3339(start_dt)}, stop: {local_to_rfc3339(end_dt)})
+      |> filter(fn: (r) => r["_measurement"] == "{measurement}" and r["_field"] == "LAEA"){media}
+    '''
 
-    def process_query(query):
-        tables  = query_api.query(query, org=INFLUXDB_ORG)
-        results = []
-        for table in tables:
-            for record in table.records:
-                if record.get_value() is not None:
-                    results.append({'time': record.get_time().isoformat(), 'value': record.get_value()})
-        return results
-
+    client = get_client()
     try:
-        data = {key: process_query(q) for key, q in queries.items()}
-        data['warning'] = f'Dados limitados a {limit} pontos por série devido ao volume'
-        return jsonify(data)
+        laea = [
+            {'time': rec.get_time().isoformat(), 'value': rec.get_value()}
+            for table in client.query_api().query(query, org=INFLUXDB_ORG)
+            for rec in table.records
+            if rec.get_value() is not None
+        ]
+        return jsonify({'laea': laea})
     except Exception as e:
         return jsonify({'error': f'Erro ao processar dados: {str(e)}'}), 500
     finally:
@@ -337,8 +316,11 @@ def get_stats_stream():
 
 # Download CSV: enviado em streaming, em blocos, para não esgotar a memória do servidor
 DOWNLOAD_MAX_HORAS = 72                      # intervalo máximo por download (≈1M linhas, limite do Excel)
-DOWNLOAD_BLOCO     = timedelta(minutes=30)   # tamanho de cada consulta ao InfluxDB
+DOWNLOAD_BLOCO     = timedelta(minutes=10)   # tamanho de cada consulta ao InfluxDB
 DOWNLOAD_LINHAS_POR_ENVIO = 500              # linhas acumuladas antes de enviar ao browser
+
+# Só um download de cada vez (para todos os utilizadores): cada um lê dezenas de milhões de valores raw
+_download_em_curso = threading.Lock()
 
 
 @api_bp.route('/download')
@@ -364,6 +346,10 @@ def download_csv():
     if end_dt - start_dt > timedelta(hours=DOWNLOAD_MAX_HORAS):
         return jsonify({'error': f'O intervalo máximo para download é de {DOWNLOAD_MAX_HORAS} horas.'}), 400
 
+    if not _download_em_curso.acquire(blocking=False):
+        return jsonify({'error': 'Já está a decorrer outro download na plataforma. '
+                                 'Tente novamente daqui a alguns minutos.'}), 429
+
     client    = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG, timeout=120000)
     query_api = client.query_api()
 
@@ -377,6 +363,7 @@ def download_csv():
         fields = {rec.get_value() for t in tabelas for rec in t.records}
     except Exception as e:
         client.close()
+        _download_em_curso.release()
         return jsonify({'error': f'Erro ao consultar o InfluxDB: {e}'}), 500
 
     # Colunas pela ordem do CSV gerado no sensor; campos desconhecidos vão no fim
@@ -447,7 +434,7 @@ def download_csv():
     fmt_nome = lambda d: to_local(d).strftime('%Y%m%d_%H%M')
     filename = f'SoundData_{measurement}_{fmt_nome(start_dt)}_{fmt_nome(end_dt)}.csv'
 
-    return Response(
+    resposta = Response(
         generate(),
         mimetype='text/csv',
         headers={
@@ -458,6 +445,10 @@ def download_csv():
             'X-Accel-Buffering': 'no',   # Nginx: não acumular a resposta (permite progresso em tempo real)
         }
     )
+    # Liberta o download quando a resposta termina, falha ou o browser cancela
+    # (o servidor chama sempre close(), mesmo que o gerador nunca tenha começado)
+    resposta.call_on_close(_download_em_curso.release)
+    return resposta
 
 
 @api_bp.route('/calendario')
@@ -657,15 +648,12 @@ def get_data():
             return jsonify({'error': 'Missing sensor_id parameter'}), 400
 
         duration_days = parse_interval_to_days(start)
+        measurement   = f'sensor{sensor_id}'
 
-        if pode_usar_bucket_agregado(duration_days, field):
-            bucket_name = 'SoundDashHosp_hourly'
-            measurement = f'sensor{sensor_id}_hourly'
-            strategy    = f"pre-aggregated hourly (field '{field}' available)"
-        else:
+        bucket_name = escolher_bucket(timedelta(days=duration_days))
+        if bucket_name != INFLUXDB_BUCKET and field not in CAMPOS_NOS_BUCKETS_AGREGADOS:
             bucket_name = INFLUXDB_BUCKET
-            measurement = f'sensor{sensor_id}'
-            strategy    = 'raw data (1s resolution)' if duration_days <= 7 else f"raw data (field '{field}' not aggregated)"
+        strategy = 'raw data' if bucket_name == INFLUXDB_BUCKET else f'pre-aggregated ({bucket_name})'
 
         query = f'''
         from(bucket: "{bucket_name}")
@@ -674,12 +662,18 @@ def get_data():
           |> filter(fn: (r) => r["_field"] == "{field}")
         '''
 
+        # Nos buckets agregados os níveis equivalentes estão em escala linear
+        linear = bucket_name != INFLUXDB_BUCKET and field in CAMPOS_AGREGADOS
+        def valor(v):
+            return round(10 * math.log10(v) if linear else v, 2)
+
         client = get_client()
         result = client.query_api().query(query, org=INFLUXDB_ORG)
 
         data = [
-            {'time': record.get_time().isoformat(), 'value': round(record.get_value(), 2)}
+            {'time': record.get_time().isoformat(), 'value': valor(record.get_value())}
             for table in result for record in table.records
+            if record.get_value() is not None and (not linear or record.get_value() > 0)
         ]
 
         return jsonify({

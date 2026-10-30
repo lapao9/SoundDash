@@ -1,5 +1,8 @@
 # Grafana — corrigir médias (média energética)
 
+> **Substituído (out 2026)** por `GUIAS/GUIA_OTIMIZACAO_2026-10.md` e pelas queries em `grafana/queries/`
+> (buckets agregados, operador `^` em vez de `math.pow`, bandas 31,5 Hz e 2 kHz). Fica como histórico.
+
 Os painéis do dashboard `Dash1` (uid `aemh0e2wamy2od`) faziam `aggregateWindow(fn: mean)` diretamente
 sobre valores em dB. Isso é uma média **aritmética** de decibéis, que subestima o nível equivalente.
 

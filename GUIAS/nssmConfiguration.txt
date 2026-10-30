@@ -1,8 +1,15 @@
 # PowerShell Admin
 
 # ========== FLASK ==========
-# --- Instalação nova --- ( ANTIGO )
-nssm install SoundDash-Flask "C:\Users\laa\AppData\Local\Python\bin\python.exe" "run.py"
+# Produção: serve.py (servidor Waitress; requer "pip install waitress").
+# run.py (servidor de desenvolvimento, debug) é só para testar no PC.
+
+# --- Passar um serviço existente de run.py para serve.py ---
+nssm set SoundDash-Flask AppParameters serve.py
+nssm restart SoundDash-Flask
+
+# --- Instalação nova ---
+nssm install SoundDash-Flask "C:\Users\laa\AppData\Local\Python\bin\python.exe" "serve.py"
 nssm set SoundDash-Flask AppDirectory "C:\Users\laa\Desktop\SoundDash\webApp"
 nssm set SoundDash-Flask DisplayName "SoundDash Flask Web"
 nssm set SoundDash-Flask Start SERVICE_AUTO_START
@@ -10,7 +17,7 @@ nssm set SoundDash-Flask Start SERVICE_AUTO_START
 # --- Atualizar instalação existente (uninstall + reinstall) ---
 nssm stop SoundDash-Flask
 nssm remove SoundDash-Flask confirm
-nssm install SoundDash-Flask "C:\Users\laa\AppData\Local\Python\bin\python.exe" "run.py"
+nssm install SoundDash-Flask "C:\Users\laa\AppData\Local\Python\bin\python.exe" "serve.py"
 nssm set SoundDash-Flask AppDirectory "C:\Users\laa\Desktop\SoundDash\webApp"
 nssm set SoundDash-Flask DisplayName "SoundDash Flask Web"
 nssm set SoundDash-Flask Start SERVICE_AUTO_START

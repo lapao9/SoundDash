@@ -238,7 +238,7 @@ Install-Service `
 Install-Service `
     -Name      "SoundDash-Flask" `
     -Exe       $PythonExe `
-    -AppParams "run.py" `
+    -AppParams "serve.py" `
     -AppDir    $WebAppDir `
     -Display   "SoundDash Flask Web"
 

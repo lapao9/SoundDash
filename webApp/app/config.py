@@ -10,6 +10,12 @@ INFLUXDB_TOKEN = "LvrSeU4NaBeQN7c4S4LsJCmlflUIQDgwRJqm383tdMoQaoDkM6pHAB022sAURd
 INFLUXDB_ORG   = "ISEL"
 INFLUXDB_BUCKET = "SoundDashHosp"
 
+# Buckets agregados (preenchidos pelas tasks em Influx_Scripts/Tasks/task_agregar_*.flux).
+# Níveis equivalentes (LAEA, LAEC, LAEZ, bandas) guardados em escala LINEAR: média de 10^(L/10)
+# na janela; "n" = nº de amostras LAEA; LCpeak/LAFmax = máximo; LAFmin = mínimo; eventos = média.
+INFLUXDB_BUCKET_1M = "SoundDashHosp_1m"
+INFLUXDB_BUCKET_1H = "SoundDashHosp_1h"
+
 # MQTT
 MQTT_BROKER = "10.64.137.6"
 MQTT_PORT   = 1881

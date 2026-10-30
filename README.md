@@ -60,7 +60,8 @@ Desenvolvido no âmbito de projeto no ISEL --> captura, processa e visualiza ní
 SoundDash/
 │
 ├── webApp/                        # Aplicação Flask
-│   ├── run.py                     # Entry point  →  python run.py
+│   ├── run.py                     # Desenvolvimento  →  python run.py (debug)
+│   ├── serve.py                   # Produção (VM)    →  python serve.py (Waitress)
 │   ├── app/
 │   │   ├── __init__.py            # App factory create_app()
 │   │   ├── config.py              # Constantes (URLs, tokens, paths)
@@ -165,7 +166,7 @@ nssm set SoundDash-NodeRED DisplayName "SoundDash NodeRED"
 nssm set SoundDash-NodeRED Start SERVICE_AUTO_START
 
 # ── Flask ─────────────────────────────────────────────────────────────
-nssm install SoundDash-Flask "C:\...\python.exe" "run.py"
+nssm install SoundDash-Flask "C:\...\python.exe" "serve.py"   # requer: pip install waitress
 nssm set SoundDash-Flask AppDirectory "C:\...\SoundDash\webApp"
 nssm set SoundDash-Flask DisplayName "SoundDash Flask Web"
 nssm set SoundDash-Flask Start SERVICE_AUTO_START
@@ -448,8 +449,10 @@ Copiar o hash gerado para `webApp/users.json`:
 ## Notas
 
 - Datas e horas: o InfluxDB guarda tudo em UTC; a webapp converte para `Europe/Lisbon` (dias, turnos, Ld/Le/Ln). No Windows é necessário o pacote `tzdata`.
-- Queries do Grafana com média energética: ver `GUIAS/GRAFANA_MEDIAS_ENERGETICAS.md`.
+- Buckets agregados, tasks e queries do Grafana: ver `GUIAS/GUIA_OTIMIZACAO_2026-10.md`.
+- Em Flux, converter dB -> linear com `10.0 ^ (x / 10.0)` e não com `math.pow` (~90x mais lento),
+  e dar a cada ramo de uma query o seu `from |> range |> filter` completo (sem variável "base" partilhada).
 
-- `debug=True` em `run.py` — desactivar em produção
+- `run.py` corre com `debug=True` — só para desenvolvimento; na VM o serviço usa `serve.py`
 - O token InfluxDB e a `SECRET_KEY` estão em `webApp/app/config.py` — não commitir credenciais reais
 - Para simular dados de sensor sem RPi: `python sensor/CSVtoJSON_MQTT.py data/ficheiro.csv Sensor1`

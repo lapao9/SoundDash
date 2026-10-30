@@ -1,7 +1,16 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from influxdb_client import InfluxDBClient
-from app.config import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, LOCAL_TZ
+from app.config import (
+    INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, LOCAL_TZ,
+    INFLUXDB_BUCKET, INFLUXDB_BUCKET_1M, INFLUXDB_BUCKET_1H
+)
 
+"""
+Este ficheiro serve para encapsular a lógica de acesso ao InfluxDB, 
+incluindo a criação do cliente, conversão de datas e 
+verificação de campos agregados.
+é chamado/executado em 
+"""
 
 CAMPOS_AGREGADOS = [
     "LAEA", "LAEC", "LAEZ",
@@ -13,6 +22,11 @@ CAMPOS_AGREGADOS = [
     "05000_Hz", "06300_Hz", "08000_Hz", "10000_Hz", "12500_Hz",
     "16000_Hz", "20000_Hz"
 ]
+
+# Todos os campos que as tasks guardam nos buckets agregados (CAMPOS_AGREGADOS em escala linear)
+CAMPOS_NOS_BUCKETS_AGREGADOS = set(CAMPOS_AGREGADOS) | {
+    "n", "LCpeak", "LAFmax", "LAFmin", "EventDetect", *[f"EventType{i}" for i in range(1, 11)]
+}
 
 
 def get_client():
@@ -54,9 +68,15 @@ def parse_interval_to_days(interval_str: str) -> float:
         return 0
 
 
-def pode_usar_bucket_agregado(duration_days: float, field: str = None) -> bool:
-    if duration_days < 7:
-        return False
-    if field is None:
-        return False
-    return field in CAMPOS_AGREGADOS
+# Escolha dos dados conforme a duração pedida (mesmos limites das queries do Grafana)
+LIMITE_RAW = timedelta(hours=12)
+LIMITE_1M  = timedelta(days=31)
+
+
+def escolher_bucket(duracao: timedelta) -> str:
+    """raw até 12 h, médias por minuto até 31 dias, médias por hora acima disso."""
+    if duracao <= LIMITE_RAW:
+        return INFLUXDB_BUCKET
+    if duracao <= LIMITE_1M:
+        return INFLUXDB_BUCKET_1M
+    return INFLUXDB_BUCKET_1H

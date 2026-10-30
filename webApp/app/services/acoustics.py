@@ -1,8 +1,8 @@
 import math
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 import pandas as pd
 from influxdb_client import InfluxDBClient
-from app.config import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET
+from app.config import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET, INFLUXDB_BUCKET_1H
 from app.services.influx import to_local
 
 
@@ -90,9 +90,13 @@ def _min(a, b):
 
 
 def flux_media_energetica(every: str, time_src: str = '_stop') -> str:
-    """Pipeline Flux para média energética numa janela (a query tem de fazer import "math")."""
+    """
+    Pipeline Flux para média energética numa janela (a query tem de fazer import "math").
+    dB -> linear com o operador ^ e não com math.pow: o Flux calcula o ^ em bloco (~90x mais rápido
+    sobre milhões de amostras); o log10 final só corre sobre os pontos já agregados.
+    """
     return f'''
-      |> map(fn: (r) => ({{r with _value: math.pow(x: 10.0, y: float(v: r._value) / 10.0)}}))
+      |> map(fn: (r) => ({{r with _value: 10.0 ^ (float(v: r._value) / 10.0)}}))
       |> aggregateWindow(every: {every}, fn: mean, createEmpty: false, timeSrc: "{time_src}")
       |> map(fn: (r) => ({{r with _value: 10.0 * math.log10(x: r._value)}}))'''
 
@@ -145,53 +149,101 @@ def fetch_event_intervals_by_hour(sensor: str, start: str, stop: str) -> dict:
         client.close()
 
 
-def fetch_horas_agregadas(sensor: str, start: str, stop: str) -> dict:
-    """
-    Agregação horária exata a partir das amostras raw:
-      soma = Σ 10^(LAEA/10) e n = nº de amostras LAEA (permitem LAeq exato de qualquer conjunto de horas),
-      LCpeak/LAFmax = máximo, LAFmin = mínimo.
-    Devolve {datetime local (início da hora): {'soma', 'n', 'LCpeak', 'LAFmax', 'LAFmin'}}.
-    """
+def _juntar_hora(horas: dict, t, soma=None, n=None, lcpeak=None, lafmax=None, lafmin=None):
+    h = horas.setdefault(to_local(t), {})
+    if soma is not None and n:
+        h['soma'] = h.get('soma', 0.0) + float(soma)
+        h['n']    = h.get('n', 0.0) + float(n)
+    if lcpeak is not None:
+        h['LCpeak'] = _max(h.get('LCpeak'), float(lcpeak))
+    if lafmax is not None:
+        h['LAFmax'] = _max(h.get('LAFmax'), float(lafmax))
+    if lafmin is not None:
+        h['LAFmin'] = _min(h.get('LAFmin'), float(lafmin))
+
+
+def _horas_do_bucket(query_api, sensor: str, start: str, stop: str, horas: dict):
+    """Horas já agregadas pela task (bucket 1h): LAEA = média linear, n = nº de amostras -> soma = LAEA·n."""
     query = f'''
-    import "math"
-    base = from(bucket: "{INFLUXDB_BUCKET}")
+    from(bucket: "{INFLUXDB_BUCKET_1H}")
       |> range(start: {start}, stop: {stop})
       |> filter(fn: (r) => r["_measurement"] == "{sensor}")
-    lin = base
-      |> filter(fn: (r) => r["_field"] == "LAEA")
-      |> map(fn: (r) => ({{r with _value: math.pow(x: 10.0, y: float(v: r._value) / 10.0)}}))
+      |> filter(fn: (r) => r["_field"] == "LAEA" or r["_field"] == "n" or r["_field"] == "LCpeak"
+                           or r["_field"] == "LAFmax" or r["_field"] == "LAFmin")
+      |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+    '''
+    for table in query_api.query(query, org=INFLUXDB_ORG):
+        for rec in table.records:
+            v = rec.values
+            laea, n = v.get('LAEA'), v.get('n')
+            _juntar_hora(horas, rec.get_time(),
+                         soma=laea * n if laea is not None and n else None, n=n,
+                         lcpeak=v.get('LCpeak'), lafmax=v.get('LAFmax'), lafmin=v.get('LAFmin'))
+
+
+def _horas_do_raw(query_api, sensor: str, start: str, stop: str, horas: dict):
+    """Horas ainda não agregadas (a mais recente): calculadas sobre as amostras raw."""
+    # Cada ramo com o seu filtro completo e escrito por extenso (ver fetch_indicadores_intervalo):
+    # passar o filtro como função também impede o InfluxDB de o aplicar na leitura.
+    rng = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: {start}, stop: {stop})'
+    m = f'r["_measurement"] == "{sensor}"'
+    query = f'''
+    lin = {rng}
+      |> filter(fn: (r) => {m} and r["_field"] == "LAEA")
+      |> map(fn: (r) => ({{r with _value: 10.0 ^ (float(v: r._value) / 10.0)}}))
     soma = lin
       |> aggregateWindow(every: 1h, fn: sum, createEmpty: false, timeSrc: "_start")
       |> map(fn: (r) => ({{r with _field: "soma"}}))
-    n = lin
+    n = {rng}
+      |> filter(fn: (r) => {m} and r["_field"] == "LAEA")
       |> aggregateWindow(every: 1h, fn: count, createEmpty: false, timeSrc: "_start")
       |> map(fn: (r) => ({{r with _field: "n", _value: float(v: r._value)}}))
-    mx = base
-      |> filter(fn: (r) => r["_field"] == "LCpeak" or r["_field"] == "LAFmax")
+    mx = {rng}
+      |> filter(fn: (r) => {m} and (r["_field"] == "LCpeak" or r["_field"] == "LAFmax"))
       |> aggregateWindow(every: 1h, fn: max, createEmpty: false, timeSrc: "_start")
       |> map(fn: (r) => ({{r with _value: float(v: r._value)}}))
-    mn = base
-      |> filter(fn: (r) => r["_field"] == "LAFmin")
+    mn = {rng}
+      |> filter(fn: (r) => {m} and r["_field"] == "LAFmin")
       |> aggregateWindow(every: 1h, fn: min, createEmpty: false, timeSrc: "_start")
       |> map(fn: (r) => ({{r with _value: float(v: r._value)}}))
     union(tables: [soma, n, mx, mn])
+      |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
     '''
+    for table in query_api.query(query, org=INFLUXDB_ORG):
+        for rec in table.records:
+            v = rec.values
+            _juntar_hora(horas, rec.get_time(), soma=v.get('soma'), n=v.get('n'),
+                         lcpeak=v.get('LCpeak'), lafmax=v.get('LAFmax'), lafmin=v.get('LAFmin'))
+
+
+def _fim_horas_agregadas() -> datetime:
+    """Início da hora mais recente que a task horária pode ainda não ter processado (corre às HH:02)."""
+    agora = datetime.now(timezone.utc) - timedelta(minutes=15)
+    return agora.replace(minute=0, second=0, microsecond=0)
+
+
+def fetch_horas_agregadas(sensor: str, start: str, stop: str) -> dict:
+    """
+    Agregação horária exata:
+      soma = Σ 10^(LAEA/10) e n = nº de amostras LAEA (permitem LAeq exato de qualquer conjunto de horas),
+      LCpeak/LAFmax = máximo, LAFmin = mínimo.
+    As horas já processadas pela task vêm do bucket 1h (rápido); só a hora mais recente é
+    calculada sobre o raw. `start`/`stop` em RFC3339 UTC.
+    Devolve {datetime local (início da hora): {'soma', 'n', 'LCpeak', 'LAFmax', 'LAFmin'}}.
+    """
+    ini = datetime.fromisoformat(start.replace('Z', '+00:00'))
+    fim = datetime.fromisoformat(stop.replace('Z', '+00:00'))
+    corte = max(ini, min(fim, _fim_horas_agregadas()))
+    fmt = lambda d: d.strftime('%Y-%m-%dT%H:%M:%SZ')
+
     client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG, timeout=120000)
     try:
+        query_api = client.query_api()
         horas = {}
-        for table in client.query_api().query(query, org=INFLUXDB_ORG):
-            for record in table.records:
-                v = record.get_value()
-                if v is None:
-                    continue
-                h = horas.setdefault(to_local(record.get_time()), {})
-                campo = record.get_field()
-                if campo in ('soma', 'n'):
-                    h[campo] = h.get(campo, 0) + float(v)
-                elif campo == 'LAFmin':
-                    h[campo] = _min(h.get(campo), float(v))
-                else:
-                    h[campo] = _max(h.get(campo), float(v))
+        if corte > ini:
+            _horas_do_bucket(query_api, sensor, fmt(ini), fmt(corte), horas)
+        if fim > corte:
+            _horas_do_raw(query_api, sensor, fmt(corte), fmt(fim), horas)
         return horas
     except Exception as e:
         print(f"Erro ao buscar agregação horária: {e}")
@@ -266,22 +318,23 @@ def fetch_indicadores_intervalo(sensor: str, start: str, stop: str, percentis_ex
     usa-se a estimativa t-digest (erro tipicamente < 0,1 dB) para não sobrecarregar o servidor.
     """
     metodo = "exact_mean" if percentis_exatos else "estimate_tdigest"
+    # Cada ramo tem o seu from/range/filter completo: com uma variável "base" partilhada,
+    # o InfluxDB lia todos os campos do sensor em cada ramo (~100x mais lento).
     query = f'''
-    import "math"
-    base = from(bucket: "{INFLUXDB_BUCKET}")
+    campo = (f) => from(bucket: "{INFLUXDB_BUCKET}")
       |> range(start: {start}, stop: {stop})
-      |> filter(fn: (r) => r["_measurement"] == "{sensor}")
-    laea = base |> filter(fn: (r) => r["_field"] == "LAEA") |> group()
+      |> filter(fn: (r) => r["_measurement"] == "{sensor}" and r["_field"] == f)
+      |> group()
     k = (tables=<-, nome) => tables |> map(fn: (r) => ({{k: nome, _value: float(v: r._value)}}))
     union(tables: [
-      laea |> map(fn: (r) => ({{r with _value: math.pow(x: 10.0, y: float(v: r._value) / 10.0)}})) |> sum() |> k(nome: "soma"),
-      laea |> count() |> k(nome: "n"),
-      laea |> quantile(q: 0.9, method: "{metodo}") |> k(nome: "la10"),
-      laea |> quantile(q: 0.5, method: "{metodo}") |> k(nome: "la50"),
-      laea |> quantile(q: 0.05, method: "{metodo}") |> k(nome: "la95"),
-      base |> filter(fn: (r) => r["_field"] == "LCpeak") |> group() |> max() |> k(nome: "lcpeak"),
-      base |> filter(fn: (r) => r["_field"] == "LAFmax") |> group() |> max() |> k(nome: "lafmax"),
-      base |> filter(fn: (r) => r["_field"] == "LAFmin") |> group() |> min() |> k(nome: "lafmin"),
+      campo(f: "LAEA") |> map(fn: (r) => ({{r with _value: 10.0 ^ (float(v: r._value) / 10.0)}})) |> sum() |> k(nome: "soma"),
+      campo(f: "LAEA") |> count() |> k(nome: "n"),
+      campo(f: "LAEA") |> quantile(q: 0.9, method: "{metodo}") |> k(nome: "la10"),
+      campo(f: "LAEA") |> quantile(q: 0.5, method: "{metodo}") |> k(nome: "la50"),
+      campo(f: "LAEA") |> quantile(q: 0.05, method: "{metodo}") |> k(nome: "la95"),
+      campo(f: "LCpeak") |> max() |> k(nome: "lcpeak"),
+      campo(f: "LAFmax") |> max() |> k(nome: "lafmax"),
+      campo(f: "LAFmin") |> min() |> k(nome: "lafmin"),
     ])
     '''
     client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG, timeout=120000)
