@@ -283,6 +283,8 @@ Calcula, para o dia indicado (hora local de Lisboa), os níveis por turno e o Ld
 
 `/api/calendario` devolve os mesmos indicadores para cada dia de um mês e, em `mes`, os valores do mês calculados sobre todas as amostras.
 
+`/api/semanal` devolve, para cada dia de uma semana (domingo a sábado), LAeq e LCpeak por hora (`horas`), por turno hospitalar (`turnos`), por período do RGR Ld/Le/Ln (`periodos`) e o Lden de cada dia (`lden`).
+
 ---
 
 ### Indicadores de um intervalo
@@ -291,7 +293,11 @@ Calcula, para o dia indicado (hora local de Lisboa), os níveis por turno e o Ld
 GET /api/indicadores?sensor_id=Sensor1&start=2025-01-15T08:00Z&end=2025-01-15T12:00Z
 ```
 
-Calculados no InfluxDB sobre as amostras raw: LAeq (média energética), LCpeak e LAFmax (máximo), LAFmin (mínimo), LA10, LA50 e LA95 (percentis 90, 50 e 5 do LAEA).
+LAeq (média energética), LCpeak e LAFmax (máximo), LAFmin (mínimo), LA10, LA50 e LA95 (percentis 90, 50 e 5 do LAEA):
+
+- até 24 h: amostras raw, percentis exatos;
+- até 31 dias: amostras raw, percentis estimados (t-digest);
+- mais de 31 dias: bucket horário (LAeq, máximos e mínimos exatos); sem percentis, que precisam de todas as amostras (`percentis_metodo: "indisponiveis"`).
 
 ---
 

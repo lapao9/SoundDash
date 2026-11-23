@@ -8,20 +8,26 @@ A webapp tem botões **Hospital / Urbano** e envia a escolha ao Grafana no URL d
 
 ## Correspondência dos nomes
 
+Correspondência Hospital → Urbano enviada pelo André (nov 2026). Confirmada pelo código do sensor
+(`SoundMeterSemaf_ver3_class.py`): no modelo urbano os índices 0 e 9 são "Atmosfera" e "Music";
+no modelo hospital o índice 2 é "Music".
+
 | Campo | Hospital | Urbano (família Aircraft) |
 |---|---|---|
-| EventType1 | Alarme | Aviões |
-| EventType2 | Impacto | Comboios |
-| EventType3 | Música | Gritos |
-| EventType4 | Gritos | Impulsivo |
-| EventType5 | Respiração | Música |
+| EventType1 | Alarme | Atmosfera |
+| EventType2 | Impacto | Automóveis |
+| EventType3 | Música | Aviões |
+| EventType4 | Gritos | Buzinas |
+| EventType5 | Respiração | Comboios |
 | EventType6 | Conversas | Conversas |
-| EventType7 | Telefone | Buzinas |
-| EventType8 | Líquidos | Cães a ladrar |
-| EventType9 | Rodas | Atmosfera |
-| EventType10 | Assobios | Automóvel |
+| EventType7 | Telefone | Cães |
+| EventType8 | Líquidos | Gritos |
+| EventType9 | Rodas | Impulsivo |
+| EventType10 | Assobios | Música |
 
-A mesma tabela está em `webApp/app/static/js/utils.js` (`FAMILIAS_EVENTOS`). Se mudar um nome, alterar nos dois sítios.
+A mesma tabela está em `webApp/app/static/js/utils.js` (`FAMILIAS_EVENTOS`) e na query do painel 13
+(`grafana/queries/painel_13_eventos.flux`). Se mudar um nome, alterar nos dois sítios e colar de novo
+a query no painel 13 do Grafana.
 
 ---
 
@@ -39,77 +45,9 @@ A mesma tabela está em `webApp/app/static/js/utils.js` (`FAMILIAS_EVENTOS`). Se
 ## Passo 2: alterar o painel 13 ("Tipos de Eventos Sonoros")
 
 1. No painel → **Edit**.
-2. Substituir a query por:
-
-```flux
-import "strings"
-
-familia = "${familia}"
-
-// Carácter invisível (zero-width space). Serve só para fixar a ordem das linhas:
-// o heatmap ordena pelo nome, e cada linha leva um número diferente destes caracteres à frente.
-z = "\xe2\x80\x8b"
-
-// Posição de cada tipo: 10 = linha de cima (tipo 10) ... 1 = penúltima (tipo 1), 0 = última (Evento detetado)
-pos = (f) =>
-  if f == "EventType1" then 1
-  else if f == "EventType2" then 2
-  else if f == "EventType3" then 3
-  else if f == "EventType4" then 4
-  else if f == "EventType5" then 5
-  else if f == "EventType6" then 6
-  else if f == "EventType7" then 7
-  else if f == "EventType8" then 8
-  else if f == "EventType9" then 9
-  else if f == "EventType10" then 10
-  else 0
-
-nome = (f) =>
-  if familia == "urbano" then
-    (if f == "EventType1" then "Aviões"
-     else if f == "EventType2" then "Comboios"
-     else if f == "EventType3" then "Gritos"
-     else if f == "EventType4" then "Impulsivo"
-     else if f == "EventType5" then "Música"
-     else if f == "EventType6" then "Conversas"
-     else if f == "EventType7" then "Buzinas"
-     else if f == "EventType8" then "Cães a ladrar"
-     else if f == "EventType9" then "Atmosfera"
-     else if f == "EventType10" then "Automóvel"
-     else if f == "EventDetect" then "Evento detetado"
-     else f)
-  else
-    (if f == "EventType1" then "Alarme"
-     else if f == "EventType2" then "Impacto"
-     else if f == "EventType3" then "Música"
-     else if f == "EventType4" then "Gritos"
-     else if f == "EventType5" then "Respiração"
-     else if f == "EventType6" then "Conversas"
-     else if f == "EventType7" then "Telefone"
-     else if f == "EventType8" then "Líquidos"
-     else if f == "EventType9" then "Rodas"
-     else if f == "EventType10" then "Assobios"
-     else if f == "EventDetect" then "Evento detetado"
-     else f)
-
-from(bucket: "SoundDashHosp")
-  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-  |> filter(fn: (r) =>
-    r["_measurement"] == "${sensorName}" and
-    (
-      r["_field"] == "EventType1" or r["_field"] == "EventType2" or
-      r["_field"] == "EventType3" or r["_field"] == "EventType4" or
-      r["_field"] == "EventType5" or r["_field"] == "EventType6" or
-      r["_field"] == "EventType7" or r["_field"] == "EventType8" or
-      r["_field"] == "EventType9" or r["_field"] == "EventType10" or
-      r["_field"] == "EventDetect"
-    )
-  )
-  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)
-  |> map(fn: (r) => ({ r with _field: strings.repeat(v: z, i: pos(f: r._field)) + nome(f: r._field) }))
-  // só tempo, valor e nome: sem isto o Grafana acrescenta o sensor ao nome ("Gritos sensor1")
-  |> keep(columns: ["_time", "_value", "_field"])
-```
+2. Substituir a query por todo o conteúdo do ficheiro `grafana/queries/painel_13_eventos.flux`
+   (abrir o ficheiro, copiar tudo e colar no editor da query). Esse ficheiro é a única versão
+   atualizada: já tem os nomes corrigidos e escolhe os dados raw / 1 min / 1 h conforme a duração.
 
 3. Abrir o separador **Transform data** (ou **Transformations**), por baixo do gráfico, ao lado de **Query**. Apagar todas as transformações *Rename by regex* (`EventType1 → Alarme`, `EventType2 → Impacto`, …, e a última `(.*) → $1`) com o ícone do caixote do lixo 🗑️.
    - Os nomes passam a vir da query, por isso estas renomeações deixam de ser precisas.
@@ -123,6 +61,6 @@ from(bucket: "SoundDashHosp")
 
 ## Verificação
 
-- Na página *Monitorização em Tempo Real*, carregar em **Urbano**: o eixo deve mostrar, de cima para baixo, Automóvel, Atmosfera, Cães a ladrar, …, Comboios, Aviões, Evento detetado, sem nomes cortados.
+- Na página *Monitorização em Tempo Real*, carregar em **Urbano**: o eixo deve mostrar, de cima para baixo, Música, Impulsivo, Gritos, …, Automóveis, Atmosfera, Evento detetado, sem nomes cortados.
 - Carregar em **Hospital**: deve mostrar Assobios, Rodas, Líquidos, …, Impacto, Alarme, Evento detetado, pela mesma ordem.
 - A escolha fica guardada no browser e aplica-se também a *Monitorização por Período*, *Display* e *Eventos Detetados*.

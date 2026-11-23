@@ -34,11 +34,12 @@ const FAMILIAS_EVENTOS = {
     EventType7: 'Telefone', EventType8: 'Líquidos',   EventType9: 'Rodas',
     EventType10: 'Assobios'
   },
+  // Correspondência Hospital -> Urbano (modelo Aircraft) enviada pelo André (nov 2026)
   urbano: {
-    EventType1: 'Aviões',   EventType2: 'Comboios',      EventType3: 'Gritos',
-    EventType4: 'Impulsivo', EventType5: 'Música',       EventType6: 'Conversas',
-    EventType7: 'Buzinas',  EventType8: 'Cães a ladrar', EventType9: 'Atmosfera',
-    EventType10: 'Automóvel'
+    EventType1: 'Atmosfera', EventType2: 'Automóveis', EventType3: 'Aviões',
+    EventType4: 'Buzinas',   EventType5: 'Comboios',   EventType6: 'Conversas',
+    EventType7: 'Cães',      EventType8: 'Gritos',     EventType9: 'Impulsivo',
+    EventType10: 'Música'
   }
 };
 

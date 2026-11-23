@@ -40,9 +40,11 @@ async function calcularLden() {
     });
 }
 
-// Indicadores do intervalo: calculados no servidor sobre as amostras raw
+// Indicadores do intervalo, calculados no servidor
 // (LAeq energético, LCpeak/LAFmax máx., LAFmin mín., LA10/LA50/LA95 = percentis 90/50/5 do LAEA).
-// O gráfico de densidade (KDE) continua a usar as médias por minuto de /api/stats.
+// Até 31 dias usa as amostras raw; acima disso o bucket horário (LAeq/máx/mín exatos) e os
+// percentis não são mostrados, porque precisam de todas as amostras (a página assinala-o).
+// O gráfico de densidade (KDE) usa as médias de /api/stats.
 const IDS_INDICADORES = ['laeq','lcpeak','lafmax','lafmin','la10','la50','la95'];
 
 function calcularEstatisticas() {
@@ -56,12 +58,15 @@ function calcularEstatisticas() {
   const sensor   = encodeURIComponent(sensors[0]);
 
   IDS_INDICADORES.forEach(id => { document.getElementById(id).textContent = '…'; });
+  const nota = document.getElementById('percentisNota');
+  nota.classList.add('d-none');
 
   fetch(`/api/indicadores?start=${isoStart}&end=${isoEnd}&sensor_id=${sensor}`)
     .then(res => res.json())
     .then(d => {
       const fmt = v => typeof v === 'number' ? v.toFixed(1) + ' dB' : '- dB';
       IDS_INDICADORES.forEach(id => { document.getElementById(id).textContent = fmt(d[id]); });
+      nota.classList.toggle('d-none', d.percentis_metodo !== 'indisponiveis');
     })
     .catch(err => {
       console.error('Erro ao buscar indicadores:', err);
@@ -110,12 +115,14 @@ function atualizarKDE(data) {
 }
 
 // ── Proteção contra sobrecarga do InfluxDB/Grafana ─────────────────────────
-// Cada atualização recarrega 4 painéis Grafana + 3 pedidos à API, todos sobre dados raw.
+// Cada atualização recarrega 4 painéis Grafana + 3 pedidos à API.
 // - As mudanças de data só disparam a atualização 1,5 s depois da última alteração
 //   (o campo de data dispara um evento por cada parte editada: dia, mês, hora, ...).
 // - Não repete pedidos iguais ao último.
-// - Limita o intervalo dos gráficos (MAX_DIAS_GRAFICOS).
-const MAX_DIAS_GRAFICOS = 31;
+// - Limita o intervalo dos gráficos (MAX_DIAS_GRAFICOS). Acima de 31 dias os painéis e a API
+//   leem o bucket horário (SoundDashHosp_1h): 1 ano são ~8 800 pontos por campo, por isso o
+//   limite pode ser 1 ano sem carregar o servidor. Antes dos buckets agregados era 31 dias.
+const MAX_DIAS_GRAFICOS = 366;
 const ATRASO_ATUALIZACAO_MS = 1500;
 let temporizadorAtualizacao = null;
 let ultimaAtualizacao = '';
@@ -138,8 +145,8 @@ function atualizarGrafico(forcar = false) {
     if (to <= from) return;  // ainda a editar as datas (fim antes do início)
     const dias = (to - from) / 86400000;
     if (dias > MAX_DIAS_GRAFICOS) {
-      alert(`O intervalo máximo para os gráficos é de ${MAX_DIAS_GRAFICOS} dias ` +
-            `(escolheu ${dias.toFixed(1)}). Para períodos maiores use a página Estatísticas.`);
+      alert(`O intervalo máximo para os gráficos é de 1 ano (${MAX_DIAS_GRAFICOS} dias; ` +
+            `escolheu ${dias.toFixed(0)}). Para períodos maiores use a página Estatísticas.`);
       return;
     }
   }

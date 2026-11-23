@@ -353,6 +353,30 @@ def fetch_indicadores_intervalo(sensor: str, start: str, stop: str, percentis_ex
         client.close()
 
 
+def fetch_indicadores_agregados(sensor: str, start: str, stop: str) -> dict:
+    """
+    Indicadores de intervalos longos (> 31 dias) sem ler as amostras raw, a partir das horas do
+    bucket 1h (ver fetch_horas_agregadas; só a hora mais recente vem do raw):
+      LAeq exato (soma LAEA·n / Σn), LCpeak/LAFmax = máximo, LAFmin = mínimo.
+    As horas nas pontas do intervalo contam inteiras ou não contam (desprezável em mais de 31 dias).
+    Verificado num InfluxDB de teste (38 dias): diferença 0,0000 dB face ao cálculo sobre o raw.
+
+    LA10/LA50/LA95 não são devolvidos: precisam de todas as amostras. Calculá-los sobre as médias
+    de 1 minuto dava valores demasiado altos (no teste: LA10 +0,2 dB, LA50 +1,8 dB, LA95 +3,7 dB),
+    porque a média energética de cada minuto sobe e suaviza os níveis mais baixos.
+    """
+    horas = fetch_horas_agregadas(sensor, start, stop)
+    acc = AcumuladorEnergia()
+    lcpeak = lafmax = lafmin = None
+    for h in horas.values():
+        acc.add(h.get('soma'), int(h.get('n', 0)))
+        lcpeak = _max(lcpeak, h.get('LCpeak'))
+        lafmax = _max(lafmax, h.get('LAFmax'))
+        lafmin = _min(lafmin, h.get('LAFmin'))
+    return {'laeq': acc.laeq(), 'lcpeak': lcpeak, 'lafmax': lafmax, 'lafmin': lafmin,
+            'la10': None, 'la50': None, 'la95': None, 'n_amostras': acc.n}
+
+
 def load_class_labels(filepath: str) -> dict:
     df = pd.read_csv(filepath)
     return dict(zip(df["index"], df["display_name"]))

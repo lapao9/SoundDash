@@ -3,6 +3,7 @@
 //
 // Igual à versão anterior (famílias hospital/urbano, ordem fixa das linhas), mas com a
 // mesma escolha de dados do painel 1 (raw / 1 min / 1 h conforme a duração).
+// Nov 2026: nomes do Urbano corrigidos (correspondência Hospital -> Urbano enviada pelo André).
 // Os buckets agregados guardam a média de cada EventType por minuto/hora, por isso a
 // média por janela continua a ser a fração de tempo com o evento.
 import "strings"
@@ -32,16 +33,16 @@ pos = (f) =>
 
 nome = (f) =>
   if familia == "urbano" then
-    (if f == "EventType1" then "Aviões"
-     else if f == "EventType2" then "Comboios"
-     else if f == "EventType3" then "Gritos"
-     else if f == "EventType4" then "Impulsivo"
-     else if f == "EventType5" then "Música"
+    (if f == "EventType1" then "Atmosfera"
+     else if f == "EventType2" then "Automóveis"
+     else if f == "EventType3" then "Aviões"
+     else if f == "EventType4" then "Buzinas"
+     else if f == "EventType5" then "Comboios"
      else if f == "EventType6" then "Conversas"
-     else if f == "EventType7" then "Buzinas"
-     else if f == "EventType8" then "Cães a ladrar"
-     else if f == "EventType9" then "Atmosfera"
-     else if f == "EventType10" then "Automóvel"
+     else if f == "EventType7" then "Cães"
+     else if f == "EventType8" then "Gritos"
+     else if f == "EventType9" then "Impulsivo"
+     else if f == "EventType10" then "Música"
      else if f == "EventDetect" then "Evento detetado"
      else f)
   else

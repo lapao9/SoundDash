@@ -154,8 +154,7 @@ function resetParaMes() {
   const mes = parseInt(document.getElementById('mesSelect').value);
   const ano = parseInt(document.getElementById('anoSelect').value);
   setPeriodoLabel(`Média — ${MESES[mes - 1]} ${ano}`, false);
-  atualizarTurnos(mesCache);
-  atualizarLden(mesCache);
+  atualizarIndicadores(mesCache);
 }
 
 async function mostrarDia(dateStr, tdEl) {
@@ -167,34 +166,15 @@ async function mostrarDia(dateStr, tdEl) {
   setPeriodoLabel(`Dia ${d}/${m}/${y} — a carregar...`, true);
 
   const spinner = '<span class="spinner-border spinner-border-sm text-secondary" role="status"></span>';
-  ['turnoT1','turnoT2','turnoT3'].forEach(id => { document.getElementById(id).innerHTML = spinner; });
-  ['ldenLd','ldenLe','ldenLn','ldenLden'].forEach(id => { document.getElementById(id).innerHTML = spinner; });
-  document.getElementById('turnosBox').classList.remove('d-none');
-  document.getElementById('ldenBox').classList.remove('d-none');
+  Object.keys(IDS_INDICADORES).forEach(id => { document.getElementById(id).innerHTML = spinner; });
+  document.getElementById('indicadoresBox').classList.remove('d-none');
 
   try {
     const res  = await fetch(`/api/lden?start=${dateStr}T00:00:00&end=${dateStr}T23:59:59&sensor_id=${sensor}`);
     const data = await res.json();
     setPeriodoLabel(`Dia ${d}/${m}/${y}`, true);
-    if (data.error) {
-      ['turnoT1','turnoT2','turnoT3','ldenLd','ldenLe','ldenLn','ldenLden'].forEach(id => {
-        document.getElementById(id).textContent = '—';
-      });
-      return;
-    }
-
-    const fmt = v => v !== null && v !== undefined ? v.toFixed(1) + ' dB' : '—';
-
-    document.getElementById('turnoT1').textContent  = fmt(data.turno1);
-    document.getElementById('turnoT2').textContent  = fmt(data.turno2);
-    document.getElementById('turnoT3').textContent  = fmt(data.turno3);
-    document.getElementById('turnosBox').classList.remove('d-none');
-
-    document.getElementById('ldenLd').textContent   = fmt(data.ld);
-    document.getElementById('ldenLe').textContent   = fmt(data.le);
-    document.getElementById('ldenLn').textContent   = fmt(data.ln);
-    document.getElementById('ldenLden').textContent = fmt(data.lden);
-    document.getElementById('ldenBox').classList.remove('d-none');
+    // Sem dados: mostra '—' em todas as linhas (a caixa fica visível)
+    preencherIndicadores(data.error ? {} : data);
   } catch(e) {
     console.error('Erro ao carregar dia:', e);
   }
@@ -211,27 +191,50 @@ function setGraficoTipo(tipo) {
   if (diasCache) renderGrafico(diasCache);
 }
 
+// ── Caixa lateral: turnos (Hospital) ou períodos do Lden (Urbano) ─────────
+// id do elemento -> chave devolvida por /api/calendario (mes) e /api/lden (dia)
+const IDS_INDICADORES = {
+  turnoT1: 'turno1', turnoT2: 'turno2', turnoT3: 'turno3',
+  ldenLd: 'ld', ldenLe: 'le', ldenLn: 'ln', ldenLden: 'lden'
+};
+
+function preencherIndicadores(v) {
+  const fmt = x => x !== null && x !== undefined ? x.toFixed(1) + ' dB' : '—';
+  Object.entries(IDS_INDICADORES).forEach(([id, k]) => {
+    document.getElementById(id).textContent = fmt(v[k]);
+  });
+}
+
 // Indicadores do mês: calculados no servidor diretamente sobre todas as amostras
 // (não é uma média dos valores diários).
-function atualizarTurnos(mes) {
-  const box = document.getElementById('turnosBox');
-  if (!mes || ['turno1','turno2','turno3'].every(k => mes[k] === null)) { box.classList.add('d-none'); return; }
-  const fmt = v => v !== null && v !== undefined ? v.toFixed(1) + ' dB' : '—';
-  document.getElementById('turnoT1').textContent = fmt(mes.turno1);
-  document.getElementById('turnoT2').textContent = fmt(mes.turno2);
-  document.getElementById('turnoT3').textContent = fmt(mes.turno3);
+function atualizarIndicadores(mes) {
+  const box = document.getElementById('indicadoresBox');
+  const temDados = mes && Object.values(IDS_INDICADORES).some(k => mes[k] !== null && mes[k] !== undefined);
+  if (!temDados) { box.classList.add('d-none'); return; }
+  preencherIndicadores(mes);
   box.classList.remove('d-none');
 }
 
-function atualizarLden(mes) {
-  const box = document.getElementById('ldenBox');
-  if (!mes || ['ld','le','ln'].every(k => mes[k] === null)) { box.classList.add('d-none'); return; }
-  const fmt = v => v !== null && v !== undefined ? v.toFixed(1) + ' dB' : '—';
-  document.getElementById('ldenLd').textContent   = fmt(mes.ld);
-  document.getElementById('ldenLe').textContent   = fmt(mes.le);
-  document.getElementById('ldenLn').textContent   = fmt(mes.ln);
-  document.getElementById('ldenLden').textContent = fmt(mes.lden);
-  box.classList.remove('d-none');
+// Hospital: turnos hospitalares + Lden. Urbano: só os períodos do Lden (Ld/Le/Ln), que são
+// os períodos de referência do ruído ambiente (RGR).
+function aplicarFamiliaLateral() {
+  const urbano = getFamiliaEventos() === 'urbano';
+  document.getElementById('indicadoresTitulo').innerHTML = urbano
+    ? 'Lden — Períodos Oficiais <small class="text-muted fw-normal">(RGR)</small>'
+    : 'Turnos Hospitalares';
+  document.getElementById('listaTurnos').classList.toggle('d-none', urbano);
+  document.getElementById('ldenSubtitulo').classList.toggle('d-none', urbano);
+}
+
+// Os dois seletores Hospital/Urbano da página (caixa lateral e tabela semanal) ficam sincronizados
+function renderTogglesFamilia() {
+  ['familiaToggleLateral', 'familiaToggleSemanal'].forEach(id => renderFamiliaToggle(id, aoMudarFamilia));
+}
+
+function aoMudarFamilia() {
+  renderTogglesFamilia();
+  aplicarFamiliaLateral();
+  if (semanalCache) renderWeeklyTurnos(semanalCache);
 }
 
 function renderGrafico(dias) {
@@ -261,7 +264,9 @@ function renderGrafico(dias) {
       { type:'bar', label:'Le — 20-23h', data: withData.map(d => d.le),
         backgroundColor:'rgba(230,126,34,0.8)',   borderRadius:3 },
       { type:'bar', label:'Ln — 23-07h', data: withData.map(d => d.ln),
-        backgroundColor:'rgba(44,62,80,0.8)',     borderRadius:3 }
+        backgroundColor:'rgba(44,62,80,0.8)',     borderRadius:3 },
+      { type:'bar', label:'Lden', data: withData.map(d => d.lden),
+        backgroundColor:'rgba(192,57,43,0.8)',    borderRadius:3 }
     ];
   } else {
     datasets = [
@@ -348,8 +353,7 @@ async function atualizarCalendario() {
     mesCache = data.mes || null;
     renderCalendar(data.dias, param);
     atualizarResumo(data.dias, param);
-    atualizarTurnos(mesCache);
-    atualizarLden(mesCache);
+    atualizarIndicadores(mesCache);
     renderGrafico(data.dias);
   } catch (err) {
     console.error('Erro ao carregar calendário:', err);
@@ -421,25 +425,50 @@ function renderWeeklyHoras(data) {
   });
 }
 
+// Quadrado só com o Lden do ciclo 07h->07h (o Lden não tem LCpeak associado)
+function makeCellLden(valor) {
+  const td = document.createElement('td');
+  td.className = 'cal-cell semanal-cell';
+  if (valor === null || valor === undefined) {
+    td.classList.add('no-data');
+    td.innerHTML = '<span class="cell-laeq">—</span>';
+    return td;
+  }
+  td.style.backgroundColor = dbToColor(valor);
+  td.innerHTML = `<div class="cell-inner"><div class="cell-half">${valor.toFixed(1)}</div></div>`;
+  td.title = `Lden: ${valor.toFixed(1)} dB (ciclo 07h–07h)`;
+  return td;
+}
+
+function linhaSemanal(label, cells) {
+  const tr = document.createElement('tr');
+  const tdLabel = document.createElement('td');
+  tdLabel.className = 'row-label';
+  tdLabel.textContent = label;
+  tr.appendChild(tdLabel);
+  cells.forEach(td => tr.appendChild(td));
+  return tr;
+}
+
+// Última tabela da vista semanal. Hospital: turnos T1/T2/T3 (dia de turnos 08h->08h).
+// Urbano: períodos do RGR Ld/Le/Ln (ciclo 07h->07h) e o Lden de cada dia.
 function renderWeeklyTurnos(data) {
+  const urbano = getFamiliaEventos() === 'urbano' && Array.isArray(data.periodos);
+  document.getElementById('tituloTurnos').textContent = urbano
+    ? 'LAeq e LCpeak por Período (RGR) e Lden'
+    : 'LAeq e LCpeak por Turno';
+  document.querySelector('#headTurnos th').textContent = urbano ? 'Período' : 'Turno';
   buildDayHeaders(data.days, 'headTurnos');
 
   const body = document.getElementById('bodyTurnos');
   body.innerHTML = '';
 
-  data.turnos.forEach(row => {
-    const tr = document.createElement('tr');
-    const tdLabel = document.createElement('td');
-    tdLabel.className = 'row-label';
-    tdLabel.textContent = row.label;
-    tr.appendChild(tdLabel);
-
-    data.days.forEach(dateStr => {
-      tr.appendChild(makeCell(row.data[dateStr] || null));
-    });
-
-    body.appendChild(tr);
+  (urbano ? data.periodos : data.turnos).forEach(row => {
+    body.appendChild(linhaSemanal(row.label, data.days.map(ds => makeCell(row.data[ds] || null))));
   });
+  if (urbano && data.lden) {
+    body.appendChild(linhaSemanal('Lden', data.days.map(ds => makeCellLden(data.lden[ds]))));
+  }
 }
 
 async function atualizarSemanal() {
@@ -522,13 +551,24 @@ function downloadCSV() {
   } else {
     if (!semanalCache) { alert('Sem dados para exportar. Atualiza a semana primeiro.'); return; }
 
-    const headers = ['Hora / Turno', ...semanalCache.days];
-    const rowsLaeq    = semanalCache.horas.map(h => [`LAeq ${h.label}`,   ...semanalCache.days.map(d => h.data[d]?.laeq   ?? '')]);
-    const rowsLcpeak  = semanalCache.horas.map(h => [`LCpeak ${h.label}`, ...semanalCache.days.map(d => h.data[d]?.lcpeak ?? '')]);
-    const rowsEventos = semanalCache.horas.map(h => [`Eventos ${h.label}`,...semanalCache.days.map(d => h.data[d]?.events ?? 0)]);
-    const rowsTurnos  = semanalCache.turnos.map(t => [`Turno LAeq ${t.label}`, ...semanalCache.days.map(d => t.data[d]?.laeq ?? '')]);
+    const days = semanalCache.days;
+    const headers = ['Hora / Turno / Período', ...days];
+    const linhas  = (rows, prefixo, campo, vazio = '') =>
+      rows.map(x => [`${prefixo} ${x.label}`, ...days.map(d => x.data[d]?.[campo] ?? vazio)]);
 
-    const csv = [headers, ...rowsLaeq, ...rowsLcpeak, ...rowsEventos, [], headers, ...rowsTurnos]
+    const rowsLaeq     = linhas(semanalCache.horas, 'LAeq', 'laeq');
+    const rowsLcpeak   = linhas(semanalCache.horas, 'LCpeak', 'lcpeak');
+    const rowsEventos  = linhas(semanalCache.horas, 'Eventos', 'events', 0);
+    const rowsTurnos   = [...linhas(semanalCache.turnos, 'LAeq', 'laeq'),
+                          ...linhas(semanalCache.turnos, 'LCpeak', 'lcpeak')];
+    const periodos     = semanalCache.periodos || [];
+    const rowsPeriodos = [...linhas(periodos, 'LAeq', 'laeq'),
+                          ...linhas(periodos, 'LCpeak', 'lcpeak')];
+    if (semanalCache.lden) rowsPeriodos.push(['Lden', ...days.map(d => semanalCache.lden[d] ?? '')]);
+
+    const csv = [headers, ...rowsLaeq, ...rowsLcpeak, ...rowsEventos,
+                 [], headers, ...rowsTurnos,
+                 [], headers, ...rowsPeriodos]
       .map(r => r.join(';')).join('\n');
 
     triggerDownload(csv, `SoundDash_estatisticas_semanal_${sensor}_${semanalCache.week_start}.csv`);
@@ -581,5 +621,7 @@ function inicializarSeletores() {
 
 window.onload = () => {
   inicializarSeletores();
+  renderTogglesFamilia();
+  aplicarFamiliaLateral();
   carregarSensores('sensorSelect', atualizarCalendario);
 };

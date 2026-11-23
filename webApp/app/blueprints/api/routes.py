@@ -13,12 +13,14 @@ from influxdb_client import InfluxDBClient
 from app.config import INFLUXDB_URL, INFLUXDB_TOKEN, INFLUXDB_ORG, INFLUXDB_BUCKET
 from app.services.influx import (
     get_client, local_to_rfc3339, to_local, parse_interval_to_days, escolher_bucket,
-    CAMPOS_AGREGADOS, CAMPOS_NOS_BUCKETS_AGREGADOS
+    CAMPOS_AGREGADOS, CAMPOS_NOS_BUCKETS_AGREGADOS, LIMITE_1M
 )
 from app.services.acoustics import (
     fetch_event_intervals_by_hour, flux_media_energetica,
     fetch_horas_agregadas, calcular_indicadores_dias, fetch_indicadores_intervalo,
-    AcumuladorEnergia, dia_atribuido, turno_da_hora, TURNO_INICIO_DIA, INDICADORES_DIA
+    fetch_indicadores_agregados, calcular_lden_db,
+    AcumuladorEnergia, dia_atribuido, turno_da_hora, periodo_da_hora,
+    TURNO_INICIO_DIA, LDEN_INICIO_DIA, INDICADORES_DIA
 )
 from app.services.system_config import load_system_config, save_system_config
 
@@ -91,8 +93,11 @@ def get_lden():
 @api_bp.route('/indicadores')
 def get_indicadores():
     """
-    Indicadores de um intervalo (página Monitorização por Período), calculados no InfluxDB
-    sobre as amostras raw: LAeq, LCpeak, LAFmax, LAFmin, LA10, LA50, LA95.
+    Indicadores de um intervalo (página Monitorização por Período): LAeq, LCpeak, LAFmax, LAFmin,
+    LA10, LA50, LA95.
+      até 24 h  -> amostras raw, percentis exatos
+      até 31 d  -> amostras raw, percentis estimados (t-digest)
+      mais      -> bucket horário (LAeq/máx/mín exatos); sem percentis, que precisam das amostras raw
     """
     start  = request.args.get('start')
     end    = request.args.get('end')
@@ -111,10 +116,19 @@ def get_indicadores():
         return jsonify({'error': 'A data de fim tem de ser posterior à de início.'}), 400
 
     try:
-        # Percentis exatos até 24 h; acima disso, estimativa (ordenar milhões de amostras sobrecarrega o InfluxDB)
-        exatos = (end_dt - start_dt) <= timedelta(hours=24)
-        v = fetch_indicadores_intervalo(sensor, local_to_rfc3339(start_dt), local_to_rfc3339(end_dt), exatos)
-        v['percentis_exatos'] = exatos
+        duracao = end_dt - start_dt
+        start_rfc, end_rfc = local_to_rfc3339(start_dt), local_to_rfc3339(end_dt)
+        if duracao > LIMITE_1M:
+            # Mais de 31 dias: ler as amostras raw (dezenas de milhões) sobrecarregava o InfluxDB
+            v = fetch_indicadores_agregados(sensor, start_rfc, end_rfc)
+            metodo = 'indisponiveis'
+        else:
+            # Percentis exatos até 24 h; acima disso, estimativa (ordenar milhões de amostras sobrecarrega o InfluxDB)
+            exatos = duracao <= timedelta(hours=24)
+            v = fetch_indicadores_intervalo(sensor, start_rfc, end_rfc, exatos)
+            metodo = 'exatos' if exatos else 'tdigest'
+        v['percentis_exatos'] = metodo == 'exatos'
+        v['percentis_metodo'] = metodo
     except Exception as e:
         return jsonify({'error': f'Erro ao consultar o InfluxDB: {e}'}), 500
 
@@ -523,17 +537,19 @@ def get_semanal():
     dias = [(week_start + timedelta(days=i)).date() for i in range(7)]
     days = [d.strftime('%Y-%m-%d') for d in dias]
 
-    # Acumula por (dia de calendário, hora) e por (dia de turnos, turno).
+    # Acumula por (dia de calendário, hora), por (dia de turnos, turno) e por (ciclo do Lden, período).
     # As duas horas repetidas na mudança para a hora de inverno ficam juntas na mesma linha.
     def nova_entrada():
         return {'acc': AcumuladorEnergia(), 'lcpeak': None}
 
-    por_hora  = defaultdict(nova_entrada)
-    por_turno = defaultdict(nova_entrada)
+    por_hora    = defaultdict(nova_entrada)
+    por_turno   = defaultdict(nova_entrada)
+    por_periodo = defaultdict(nova_entrada)
     for t, h in horas.items():
         soma, n, pico = h.get('soma'), int(h.get('n', 0)), h.get('LCpeak')
-        for destino, chave in ((por_hora,  (t.date(), t.hour)),
-                               (por_turno, (dia_atribuido(t, TURNO_INICIO_DIA), turno_da_hora(t.hour)))):
+        for destino, chave in ((por_hora,    (t.date(), t.hour)),
+                               (por_turno,   (dia_atribuido(t, TURNO_INICIO_DIA), turno_da_hora(t.hour))),
+                               (por_periodo, (dia_atribuido(t, LDEN_INICIO_DIA), periodo_da_hora(t.hour)))):
             entrada = destino[chave]
             entrada['acc'].add(soma, n)
             if pico is not None:
@@ -554,27 +570,47 @@ def get_semanal():
             row['data'][ds] = cell(por_hora.get((d, hr)), ev_counts.get((ds, hr), 0))
         horas_rows.append(row)
 
-    # Shift rows (dia de turnos: 08:00 -> 08:00; o T3 é a madrugada seguinte)
-    TURNOS = [
+    # Linhas por turno/período. horas_def: (dias após o dia da coluna, hora) que pertencem à linha.
+    def linhas(definicoes, por_chave):
+        resultado = []
+        for lid, chave, label, horas_def in definicoes:
+            row = {'id': lid, 'label': label, 'data': {}}
+            for d, ds in zip(dias, days):
+                ev_total = sum(ev_counts.get(((d + timedelta(days=off)).strftime('%Y-%m-%d'), h), 0)
+                               for off, h in horas_def)
+                row['data'][ds] = cell(por_chave.get((d, chave)), ev_total)
+            resultado.append(row)
+        return resultado
+
+    # Turnos hospitalares (dia de turnos: 08:00 -> 08:00; o T3 é a madrugada seguinte)
+    turnos = linhas([
         ('t1', 'turno1', 'Turno 1 — 08:00–16:00h', [(0, h) for h in range(8, 16)]),
         ('t2', 'turno2', 'Turno 2 — 16:00–00:00h', [(0, h) for h in range(16, 24)]),
         ('t3', 'turno3', 'Turno 3 — 00:00–08:00h (madrugada seguinte)', [(1, h) for h in range(0, 8)]),
-    ]
-    turnos = []
-    for tid, chave, label, horas_turno in TURNOS:
-        row = {'id': tid, 'label': label, 'data': {}}
-        for d, ds in zip(dias, days):
-            ev_total = sum(ev_counts.get(((d + timedelta(days=off)).strftime('%Y-%m-%d'), h), 0)
-                           for off, h in horas_turno)
-            row['data'][ds] = cell(por_turno.get((d, chave)), ev_total)
-        turnos.append(row)
+    ], por_turno)
+
+    # Períodos do RGR (ciclo do Lden: 07:00 -> 07:00; o Ln acaba às 07:00 do dia seguinte)
+    periodos = linhas([
+        ('ld', 'ld', 'Ld — Diurno 07:00–20:00h', [(0, h) for h in range(7, 20)]),
+        ('le', 'le', 'Le — Entardecer 20:00–23:00h', [(0, h) for h in range(20, 23)]),
+        ('ln', 'ln', 'Ln — Noturno 23:00–07:00h', [(0, 23)] + [(1, h) for h in range(0, 7)]),
+    ], por_periodo)
+
+    # Lden de cada ciclo, a partir dos LAeq de Ld, Le e Ln (None se faltar algum período)
+    def laeq_periodo(d, p):
+        entrada = por_periodo.get((d, p))
+        return entrada['acc'].laeq() if entrada else None
+    lden = {ds: r(calcular_lden_db(*(laeq_periodo(d, p) for p in ('ld', 'le', 'ln'))))
+            for d, ds in zip(dias, days)}
 
     return jsonify({
         'week_start': week_start.strftime('%Y-%m-%d'),
         'week_end':   week_end.strftime('%Y-%m-%d'),
         'days':       days,
         'horas':      horas_rows,
-        'turnos':     turnos
+        'turnos':     turnos,
+        'periodos':   periodos,
+        'lden':       lden
     })
 
 

@@ -13,3 +13,4 @@ __pycache__/
 *.pyo
 apresentacao/
 Influx_Scripts/preencher_agregados_estado.txt
+apagar.txt
